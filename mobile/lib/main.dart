@@ -74,7 +74,6 @@ class _AuthPageState extends State<AuthPage> {
   @override
   void initState() {
     super.initState();
-    _activeSeatCount = widget.seatCount;
   }
 
   @override
@@ -442,6 +441,7 @@ class _HomePageState extends State<HomePage> {
           ),
           const SliverToBoxAdapter(child: SizedBox(height: 20)),
         ],
+      ),
       ),
     );
   }
@@ -1266,7 +1266,35 @@ class VipPage extends StatefulWidget {
 class _VipPageState extends State<VipPage>{
   late Future<List<Map<String,dynamic>>> f;
   @override void initState(){super.initState();f=TajBackend.vipLevels();}
-  @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:const Text('VIP')),body:FutureBuilder<List<Map<String,dynamic>>>(future:f,builder:(c,s)=>ListView(children:(s.data??[]).map((r)=>Card(color:surface,child:ListTile(leading:const Icon(Icons.workspace_premium,color:gold),title:Text('VIP '+r['level'].toString()),subtitle:Text('XP: '+r['xp_required'].toString()))).toList())));
+  @override
+Widget build(BuildContext context) {
+  return Scaffold(
+    appBar: AppBar(title: const Text('VIP والمستويات')),
+    body: FutureBuilder<List<Map<String, dynamic>>>(
+      future: f,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator(color: gold));
+        }
+        if (snapshot.hasError) {
+          return Center(child: Text('تعذر تحميل مستويات VIP: ${snapshot.error}'));
+        }
+        final rows = snapshot.data ?? const <Map<String, dynamic>>[];
+        return ListView(
+          padding: const EdgeInsets.all(14),
+          children: rows.map((r) => Card(
+            color: surface,
+            child: ListTile(
+              leading: const Icon(Icons.workspace_premium, color: gold),
+              title: Text('VIP ${r['level'] ?? ''}'),
+              subtitle: Text('XP المطلوب: ${r['xp_required'] ?? 0}'),
+            ),
+          )).toList(),
+        );
+      },
+    ),
+  );
+}
 }
 class ProfileEditPage extends StatefulWidget {
   const ProfileEditPage({super.key});
@@ -1315,7 +1343,34 @@ class _AdminPageState extends State<AdminPage>{
   late Future<List<Map<String,dynamic>>> _reports;
   late Future<List<Map<String,dynamic>>> _users;
   @override void initState(){super.initState();_reports=TajBackend.adminReports();_users=TajBackend.adminUsers();}
-  Widget _list(Future<List<Map<String,dynamic>>> future,String title,IconData icon,String Function(Map<String,dynamic>) sub)=>FutureBuilder<List<Map<String,dynamic>>>(future:future,builder:(c,s)=>Card(color:surface,child:ExpansionTile(leading:Icon(icon,color:gold),title:Text(title),children:s.data?.map((x)=>ListTile(title:Text(sub(x)),subtitle:Text(x['id']?.toString()??''))).toList()??[const Padding(padding:EdgeInsets.all(16),child:CircularProgressIndicator())]));
+  Widget _list(
+  Future<List<Map<String, dynamic>>> future,
+  String title,
+  IconData icon,
+  String Function(Map<String, dynamic>) sub,
+) {
+  return FutureBuilder<List<Map<String, dynamic>>>(
+    future: future,
+    builder: (context, snapshot) {
+      final children = snapshot.connectionState == ConnectionState.waiting
+          ? <Widget>[const Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator())]
+          : (snapshot.data ?? const <Map<String, dynamic>>[])
+              .map((x) => ListTile(
+                    title: Text(sub(x)),
+                    subtitle: Text(x['id']?.toString() ?? ''),
+                  ))
+              .toList();
+      return Card(
+        color: surface,
+        child: ExpansionTile(
+          leading: Icon(icon, color: gold),
+          title: Text(title),
+          children: children,
+        ),
+      );
+    },
+  );
+}
   @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:const Text('لوحة الإدارة')),body:ListView(padding:const EdgeInsets.all(12),children:[
     _list(_users,'المستخدمون',Icons.people,(x)=>x['display_name']?.toString() ?? 'مستخدم'),
     _list(_reports,'البلاغات',Icons.report_problem,(x)=>x['reason']?.toString() ?? 'بلاغ'),
