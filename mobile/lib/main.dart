@@ -301,38 +301,114 @@ class Moments extends StatelessWidget {
 
 class Messages extends StatelessWidget {
   const Messages({super.key});
-
   @override
-  Widget build(BuildContext context) {
-    const names = ['سارة','محمد','فاطمة','نور','أحمد','خالد','ليلى','جمال'];
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        appBar: AppBar(title: const Text('الرسائل الخاصة')),
-        body: ListView.builder(
-          itemCount: names.length,
-          itemBuilder: (context, i) => ListTile(
-            leading: CircleAvatar(child: Text(names[i].substring(0, 1))),
-            title: Text(names[i]),
-            subtitle: const Text('أهلاً، كيف حالك؟'),
-            trailing: const Text('09:45'),
-          ),
+  Widget build(BuildContext context) => Directionality(
+    textDirection: TextDirection.rtl,
+    child: Scaffold(
+      appBar: AppBar(title: const Text('الرسائل الخاصة')),
+      body: const Center(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Icon(Icons.mail_outline, color: gold, size: 60),
+            SizedBox(height: 16),
+            Text('لا توجد رسائل بعد', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: gold2)),
+            SizedBox(height: 8),
+            Text('ستظهر محادثاتك الحقيقية هنا بعد بدء التواصل مع المستخدمين.', textAlign: TextAlign.center, style: TextStyle(color: Colors.white60)),
+          ]),
         ),
       ),
-    );
-  }
+    ),
+  );
 }
 
-class Wallet extends StatelessWidget{const Wallet({super.key});@override Widget build(BuildContext c)=>Scaffold(appBar:AppBar(title:const Text('المحفظة • Coins & Diamonds')),body:Padding(padding:const EdgeInsets.all(18),child:Column(children:[
-  Container(width:double.infinity,padding:const EdgeInsets.all(24),decoration:BoxDecoration(borderRadius:BorderRadius.circular(25),gradient:const LinearGradient(colors:[Color(0xFF7B2CFF),Color(0xFFCC3BFF)])),child:const Column(children:[Text('رصيد Coins',style:TextStyle(color:Colors.white70)),Text('5,250 🪙',style:TextStyle(fontSize:35,fontWeight:FontWeight.bold))])),
-  const SizedBox(height:20),...['100 🪙','550 🪙','1,250 🪙','2,750 🪙','6,000 🪙'].map((x)=>Card(child:ListTile(title:Text(x),subtitle:const Text('باقة شحن'),trailing:FilledButton(onPressed:(){},child:const Text('شراء')))))
-])));}
+class Wallet extends StatefulWidget {
+  const Wallet({super.key});
+  @override State<Wallet> createState()=>_WalletState();
+}
+class _WalletState extends State<Wallet> {
+  bool loading=true;
+  String? error;
+  List<Map<String,dynamic>> balances=[];
+  @override void initState(){super.initState();_load();}
+  Future<void> _load() async {
+    try { final data=await ToyoApi.wallet(); if(mounted)setState((){balances=data;loading=false;error=null;}); }
+    catch(e) { if(mounted)setState((){loading=false;error='تعذر تحميل المحفظة';}); }
+  }
+  @override Widget build(BuildContext c)=>Directionality(
+    textDirection:TextDirection.rtl,
+    child:Scaffold(
+      appBar:AppBar(title:const Text('المحفظة • Coins & Diamonds')),
+      body:loading
+        ? const Center(child:CircularProgressIndicator(color:gold))
+        : error!=null
+          ? Center(child:Column(mainAxisSize:MainAxisSize.min,children:[Text(error!),const SizedBox(height:12),FilledButton(onPressed:_load,child:const Text('إعادة المحاولة'))]))
+          : ListView(
+              padding:const EdgeInsets.all(18),
+              children:[
+                ...balances.map((b)=>Card(child:ListTile(
+                  leading:Icon(b['currency']=='coins'?Icons.monetization_on:Icons.diamond,color:gold),
+                  title:Text(b['currency']=='coins'?'Coins':'Diamonds'),
+                  trailing:Text('${b['balance']??0}',style:const TextStyle(fontSize:22,fontWeight:FontWeight.w900,color:gold)),
+                ))),
+                if(balances.isEmpty) const Padding(padding:EdgeInsets.all(30),child:Center(child:Text('لا يوجد رصيد حالياً',style:TextStyle(color:Colors.white60)))),
+              ],
+            ),
+    ),
+  );
+}
 
-class Profile extends StatelessWidget{const Profile({super.key});@override Widget build(BuildContext c)=>Scaffold(body:SafeArea(child:ListView(children:[
-  Container(height:280,decoration:const BoxDecoration(gradient:LinearGradient(colors:[Color(0xFF4A1A7B),Color(0xFF0B0614)])),child:Column(mainAxisAlignment:MainAxisAlignment.center,children:[const CircleAvatar(radius:55,backgroundImage:NetworkImage('https://i.pravatar.cc/160?img=12')),const SizedBox(height:12),const Text('أمير القلوب',style:TextStyle(fontSize:27,fontWeight:FontWeight.w900,color:gold2)),const Text('ID:1501637 • 🇪🇬 مصر'),const SizedBox(height:8),Text('VIP 5 • LEVEL 32 • ✨ عضو مميز',style:TextStyle(color:gold,fontWeight:FontWeight.w900))])),
-  Card(margin:const EdgeInsets.symmetric(horizontal:12,vertical:8),child:ListTile(leading:const Icon(Icons.account_balance_wallet,color:gold),title:const Text('المحفظة'),subtitle:const Text('5,250 Coins • 120 Diamonds'),trailing:const Icon(Icons.chevron_left),onTap:()=>Navigator.push(c,MaterialPageRoute(builder:(_)=>const Wallet())))),
-  ListTile(leading:const Icon(Icons.emoji_events,color:gold),title:const Text('الإنجازات'),onTap:(){}),ListTile(leading:const Icon(Icons.card_giftcard),title:const Text('أطلس الهدايا')),ListTile(leading:const Icon(Icons.workspace_premium),title:const Text('الشارات')),ListTile(leading:const Icon(Icons.shield_outlined),title:const Text('الحساب والأمان')),ListTile(leading:const Icon(Icons.settings),title:const Text('الإعدادات')),ListTile(leading:const Icon(Icons.logout,color:Colors.red),title:const Text('تسجيل الخروج',style:TextStyle(color:Colors.red)),onTap:() async {final p=await SharedPreferences.getInstance();await p.setBool('logged',false);if(c.mounted)Navigator.pushAndRemoveUntil(c,MaterialPageRoute(builder:(_)=>const Login()),(_)=>false);}),
-])));}
+class Profile extends StatefulWidget {
+  const Profile({super.key});
+  @override State<Profile> createState()=>_ProfileState();
+}
+class _ProfileState extends State<Profile> {
+  bool loading=true;
+  String? error;
+  Map<String,dynamic>? me;
+  @override void initState(){super.initState();_load();}
+  Future<void> _load() async {
+    try { final data=await ToyoApi.me(); if(mounted)setState((){me=data;loading=false;error=null;}); }
+    catch(e) { if(mounted)setState((){loading=false;error='تعذر تحميل الملف الشخصي';}); }
+  }
+  @override Widget build(BuildContext c) {
+    if(loading) return const Scaffold(body:Center(child:CircularProgressIndicator(color:gold)));
+    if(error!=null) return Scaffold(body:Center(child:Column(mainAxisSize:MainAxisSize.min,children:[Text(error!),const SizedBox(height:12),FilledButton(onPressed:_load,child:const Text('إعادة المحاولة'))])));
+    final name=me?['display_name']?.toString()??'مستخدم TOYO';
+    final id=me?['public_id']?.toString()??'—';
+    final level=me?['level']?.toString()??'1';
+    final vip=me?['vip_level']?.toString()??'0';
+    final initial=name.isEmpty?'؟':name.substring(0,1);
+    return Directionality(textDirection:TextDirection.rtl,child:Scaffold(body:SafeArea(child:ListView(children:[
+      Container(height:280,decoration:const BoxDecoration(gradient:LinearGradient(colors:[Color(0xFF4A1A7B),Color(0xFF0B0614)])),child:Column(mainAxisAlignment:MainAxisAlignment.center,children:[
+        CircleAvatar(radius:55,child:Text(initial,style:const TextStyle(fontSize:34))),
+        const SizedBox(height:12),
+        Text(name,style:const TextStyle(fontSize:27,fontWeight:FontWeight.w900,color:gold2)),
+        Text('ID:$id'),
+        const SizedBox(height:8),
+        Text('VIP $vip • LEVEL $level',style:const TextStyle(color:gold,fontWeight:FontWeight.w900)),
+      ])),
+      Card(margin:const EdgeInsets.symmetric(horizontal:12,vertical:8),child:ListTile(
+        leading:const Icon(Icons.account_balance_wallet,color:gold),
+        title:const Text('المحفظة'),
+        subtitle:const Text('عرض الرصيد الحقيقي'),
+        trailing:const Icon(Icons.chevron_left),
+        onTap:()=>Navigator.push(c,MaterialPageRoute(builder:(_)=>const Wallet())),
+      )),
+      const ListTile(leading:Icon(Icons.emoji_events,color:gold),title:Text('الإنجازات')),
+      const ListTile(leading:Icon(Icons.card_giftcard),title:Text('أطلس الهدايا')),
+      const ListTile(leading:Icon(Icons.workspace_premium),title:Text('الشارات')),
+      const ListTile(leading:Icon(Icons.shield_outlined),title:Text('الحساب والأمان')),
+      const ListTile(leading:Icon(Icons.settings),title:Text('الإعدادات')),
+      ListTile(leading:const Icon(Icons.logout,color:Colors.red),title:const Text('تسجيل الخروج',style:TextStyle(color:Colors.red)),onTap:() async {
+        final p=await SharedPreferences.getInstance();
+        await p.remove('token');
+        await p.setBool('logged',false);
+        if(c.mounted)Navigator.pushAndRemoveUntil(c,MaterialPageRoute(builder:(_)=>const Login()),(_)=>false);
+      }),
+    ]))));
+  }
+}
 
 class StarPainter extends CustomPainter{ @override void paint(Canvas c,Size s){final p=Paint()..color=Colors.white.withOpacity(.18);for(int i=0;i<70;i++){final x=(i*73)%s.width;final y=(i*131)%s.height;c.drawCircle(Offset(x.toDouble(),y.toDouble()),i%3==0?1.4:.7,p);}} @override bool shouldRepaint(c)=>false;}
 
