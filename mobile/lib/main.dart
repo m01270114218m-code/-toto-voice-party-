@@ -1306,7 +1306,8 @@ class CreatePage extends StatelessWidget {
     appBar: AppBar(title: const Text('إنشاء')),
     body: ListView(padding: const EdgeInsets.all(16), children: [
       ListTile(leading: const Icon(Icons.mic, color: gold), title: const Text('إنشاء غرفة صوتية'), subtitle: const Text('8 أو 10 أو 15 مقعداً'), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CreateRoomPage()))),
-      ListTile(leading: const Icon(Icons.auto_awesome, color: royal2), title: const Text('نشر لحظة'), subtitle: const Text('شارك مع مجتمع تاج لايف'), onTap: () {}),
+      ListTile(leading: const Icon(Icons.auto_awesome, color: royal2), title: const Text('نشر لحظة'), subtitle: const Text('شارك مع مجتمع تاج لايف'), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MomentsPage()))),
+      ListTile(leading: const Icon(Icons.casino, color: gold), title: const Text('الألعاب والأحداث'), subtitle: const Text('جلسات الألعاب والفعاليات'), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const GamesPage()))),
       ListTile(leading: const Icon(Icons.card_giftcard, color: gold), title: const Text('الهدايا'), subtitle: const Text('استعراض الهدايا'), onTap: () => showModalBottomSheet(context: context, backgroundColor: surface, builder: (_) => const GiftSheet())),
     ]),
   );
@@ -1364,25 +1365,49 @@ class _CreateRoomPageState extends State<CreateRoomPage> {
   );
 }
 
-class MessagesPage extends StatelessWidget {
-  const MessagesPage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    const names = ['سارة', 'محمد', 'فاطمة', 'نور', 'أحمد', 'خالد', 'ليلى', 'جمال'];
-    return Scaffold(
-      appBar: AppBar(title: const Text('الرسائل')),
-      body: ListView.builder(
-        itemCount: names.length,
-        itemBuilder: (_, i) => ListTile(
-          leading: CircleAvatar(backgroundColor: royal, child: Text('${i + 1}')),
-          title: Text(names[i]),
-          subtitle: const Text('أهلاً، كيف حالك؟'),
-          trailing: const Text('09:45', style: TextStyle(color: Colors.white54)),
-        ),
-      ),
-    );
+class PrivateChatPage extends StatefulWidget {
+  final String userId;
+  final String title;
+  const PrivateChatPage({super.key, required this.userId, required this.title});
+  @override State<PrivateChatPage> createState()=>_PrivateChatPageState();
+}
+class _PrivateChatPageState extends State<PrivateChatPage>{
+  final controller=TextEditingController();
+  @override void dispose(){controller.dispose();super.dispose();}
+  Future<void> send() async {
+    final text=controller.text.trim();
+    if(text.isEmpty)return;
+    try{await TajBackend.sendPrivateMessage(widget.userId,text);controller.clear();}catch(e){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('تعذر إرسال الرسالة: $e')));}
   }
+  @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:Text(widget.title)),body:Column(children:[
+    Expanded(child:StreamBuilder<List<Map<String,dynamic>>>(stream:TajBackend.privateMessages(widget.userId),builder:(c,s){
+      final rows=s.data??[];
+      return ListView.builder(reverse:true,padding:const EdgeInsets.all(12),itemCount:rows.length,itemBuilder:(_,i){
+        final r=rows[rows.length-1-i]; final mine=r['sender_id']==TajBackend.user?.id;
+        return Align(alignment:mine?Alignment.centerRight:Alignment.centerLeft,child:Container(margin:const EdgeInsets.symmetric(vertical:4),padding:const EdgeInsets.all(12),decoration:BoxDecoration(color:mine?royal2:surface,borderRadius:BorderRadius.circular(16)),child:Text(r['body']?.toString()??'')));
+      });
+    })),
+    SafeArea(child:Row(children:[Expanded(child:TextField(controller:controller,decoration:const InputDecoration(hintText:'اكتب رسالة...'))),IconButton(onPressed:send,icon:const Icon(Icons.send,color:gold))]))
+  ]));
+}
+
+class MessagesPage extends StatefulWidget {
+  const MessagesPage({super.key});
+  @override State<MessagesPage> createState()=>_MessagesPageState();
+}
+class _MessagesPageState extends State<MessagesPage>{
+  late Future<List<Map<String,dynamic>>> future;
+  @override void initState(){super.initState();future=TajBackend.conversations();}
+  @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:const Text('الرسائل')),body:FutureBuilder<List<Map<String,dynamic>>>(future:future,builder:(c,s){
+    if(s.connectionState==ConnectionState.waiting)return const Center(child:CircularProgressIndicator());
+    final rows=s.data??[]; final ids=<String>{};
+    for(final r in rows){final other=r['sender_id']==TajBackend.user?.id?r['recipient_id']:r['sender_id'];if(other!=null)ids.add(other.toString());}
+    if(ids.isEmpty)return const Center(child:Text('لا توجد محادثات بعد'));
+    return ListView(children:ids.map((id)=>FutureBuilder<Map<String,dynamic>?>(future:TajBackend.profileById(id),builder:(c,p){
+      final profile=p.data??{}; final title=profile['display_name']?.toString()??'مستخدم تاج لايف';
+      return ListTile(leading:const CircleAvatar(child:Icon(Icons.person)),title:Text(title),subtitle:Text('ID: ${profile['public_id']??id}'),onTap:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>PrivateChatPage(userId:id,title:title))));
+    })).toList());
+  }));
 }
 
 class WalletPage extends StatefulWidget {
