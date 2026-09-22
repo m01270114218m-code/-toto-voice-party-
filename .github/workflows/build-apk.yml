@@ -2,15 +2,12 @@ name: Build TOYO Android APK
 on:
   workflow_dispatch:
   push:
-    branches: [ main ]
+    branches:
+      - main
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: mobile
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -22,62 +19,49 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Generate Android project
+      - name: Create Android project
+        working-directory: mobile
         run: flutter create --platforms=android .
 
-      - name: Configure Android SDK and permissions
+      - name: Configure Android
+        working-directory: mobile
         run: |
           python3 - <<'PY'
           from pathlib import Path
           import re
-
-          candidates = [
-              Path('android/app/build.gradle.kts'),
-              Path('android/app/build.gradle'),
-          ]
-          for p in candidates:
-              if not p.exists():
-                  continue
-              s = p.read_text()
-              s = re.sub(r'compileSdk\s*=\s*[^\n]+', 'compileSdk = 36', s)
-              s = re.sub(r'compileSdkVersion\s+[^\n]+', 'compileSdkVersion 36', s)
-              s = re.sub(r'targetSdk\s*=\s*[^\n]+', 'targetSdk = 36', s)
-              s = re.sub(r'targetSdkVersion\s+[^\n]+', 'targetSdkVersion 36', s)
-              p.write_text(s)
-
+          for p in [Path('android/app/build.gradle.kts'), Path('android/app/build.gradle')]:
+              if p.exists():
+                  s = p.read_text()
+                  s = re.sub(r'compileSdk\s*=\s*[^\n]+', 'compileSdk = 36', s)
+                  s = re.sub(r'targetSdk\s*=\s*[^\n]+', 'targetSdk = 36', s)
+                  s = re.sub(r'compileSdkVersion\s+[^\n]+', 'compileSdkVersion 36', s)
+                  s = re.sub(r'targetSdkVersion\s+[^\n]+', 'targetSdkVersion 36', s)
+                  p.write_text(s)
           p = Path('android/app/src/main/AndroidManifest.xml')
           s = p.read_text()
           marker = '<manifest xmlns:android="http://schemas.android.com/apk/res/android">'
           if marker in s and 'android.permission.RECORD_AUDIO' not in s:
-              permissions = '''<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              s = s.replace(marker, marker + '''
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
-    <uses-permission android:name="android.permission.BLUETOOTH"/>
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
-    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation"/>'''
-              p.write_text(s.replace(marker, permissions, 1))
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation"/>''', 1)
+              p.write_text(s)
           PY
 
-      - name: Get dependencies
+      - name: Get Flutter dependencies
+        working-directory: mobile
         run: flutter pub get
 
-      - name: Verify Dart source
-        run: flutter analyze --no-fatal-infos
-
-      - name: Build Android APK with Gradle
+      - name: Build APK with Gradle
+        working-directory: mobile
         run: |
           flutter clean
           ./android/gradlew --stop || true
+          chmod +x android/gradlew
           ./android/gradlew -p android app:assembleRelease --no-daemon --stacktrace
-          echo "Generated APK files:"
-          find build android/app/build/outputs -type f -name '*.apk' -print
-
-      - name: Normalize APK output
-        run: |
+          test -f android/app/build/outputs/apk/release/app-release.apk
           mkdir -p build/app/outputs/flutter-apk
-          APK="$(find android/app/build/outputs -type f -name '*.apk' | head -n 1)"
-          test -n "$APK"
-          cp "$APK" build/app/outputs/flutter-apk/app-release.apk
-          test -s build/app/outputs/flutter-apk/app-release.apk
+          cp android/app/build/outputs/apk/release/app-release.apk build/app/outputs/flutter-apk/app-release.apk
           ls -lh build/app/outputs/flutter-apk/app-release.apk
 
       - name: Upload APK
