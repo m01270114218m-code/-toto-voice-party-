@@ -156,6 +156,54 @@ class TajBackend {
         .order('seat_number');
   }
 
+  static Future<List<Map<String, dynamic>>> myNotifications() async {
+    final id = user?.id;
+    if (id == null) return [];
+    final result = await client.from('notifications').select().eq('user_id', id).order('created_at', ascending: false).limit(50);
+    return List<Map<String, dynamic>>.from(result);
+  }
+
+  static Future<List<Map<String, dynamic>>> myWallet() async {
+    final id = user?.id;
+    if (id == null) return [];
+    final result = await client.from('wallets').select().eq('user_id', id).limit(1);
+    return List<Map<String, dynamic>>.from(result);
+  }
+
+  static Future<void> updateProfile({
+    String? displayName,
+    String? username,
+    String? bio,
+    String? avatarUrl,
+  }) async {
+    final id = user?.id;
+    if (id == null) throw StateError('not_authenticated');
+    final data = <String, dynamic>{};
+    if (displayName != null) data['display_name'] = displayName;
+    if (username != null) data['username'] = username;
+    if (bio != null) data['bio'] = bio;
+    if (avatarUrl != null) data['avatar_url'] = avatarUrl;
+    if (data.isNotEmpty) await client.from('profiles').update(data).eq('id', id);
+  }
+
+  static Future<void> moderateUser({
+    required String roomId,
+    required String targetUserId,
+    required String action,
+    String? reason,
+  }) async {
+    await client.rpc('moderate_user', params: {
+      'p_room': roomId,
+      'p_target': targetUserId,
+      'p_action': action,
+      'p_reason': reason,
+    });
+  }
+
+  static Future<void> updateRoomSeats(String roomId, int seatCount) async {
+    await client.from('rooms').update({'seat_count': seatCount}).eq('id', roomId);
+  }
+
   static Future<List<Map<String, dynamic>>> gifts() async {
     final result = await client
         .from('gifts')
