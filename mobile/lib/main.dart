@@ -439,5 +439,3 @@ class _ProfileState extends State<Profile> {
 }
 
 class StarPainter extends CustomPainter{ @override void paint(Canvas c,Size s){final p=Paint()..color=Colors.white.withOpacity(.18);for(int i=0;i<70;i++){final x=(i*73)%s.width;final y=(i*131)%s.height;c.drawCircle(Offset(x.toDouble(),y.toDouble()),i%3==0?1.4:.7,p);}} @override bool shouldRepaint(c)=>false;}
-
-class StateProvider{static dynamic of(BuildContext c)=>_Dummy();} class _Dummy{String displayName='أمير القلوب';int coins=5250;}
