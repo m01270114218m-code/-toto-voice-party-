@@ -18,7 +18,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'dev-only-secret';
 
 app.use(cors({ origin: process.env.CORS_ORIGIN?.split(',') ?? true, credentials: true }));
 app.use(express.json({ limit: '1mb' }));
-app.get('/health', (_, res) => res.json({ ok: true, service: 'voiceroom-api', time: new Date().toISOString() }));
+app.get('/health', (_, res) => res.json({ ok: true, service: 'toyo-api', time: new Date().toISOString() }));
 
 function token(user) { return jwt.sign({ sub: user.id, role: user.role || 'user' }, JWT_SECRET, { expiresIn: '30d' }); }
 async function auth(req,res,next){ try { const h=req.headers.authorization||''; if(!h.startsWith('Bearer ')) return res.status(401).json({error:'UNAUTHORIZED'}); req.user=jwt.verify(h.slice(7),JWT_SECRET); next(); } catch { res.status(401).json({error:'UNAUTHORIZED'}); } }
@@ -47,7 +47,7 @@ app.post('/api/auth/login', async (req,res)=>{
 
 app.get('/api/me',auth,async(req,res)=>{ const r=await q(`select u.id,u.email,u.role,u.status,p.* from users u left join profiles p on p.user_id=u.id where u.id=$1`,[req.user.sub]); res.json(r.rows[0]||null); });
 app.get('/api/rooms',async(req,res)=>{ const r=await q(`select r.*,p.display_name as owner_name from rooms r left join profiles p on p.user_id=r.owner_id where r.status='live' order by r.viewer_count desc, r.created_at desc limit 100`); res.json(r.rows); });
-app.post('/api/rooms',auth,async(req,res)=>{ const {name,description='',category='general',country='EG',maxSeats=10}=req.body||{}; if(!name) return res.status(400).json({error:'NAME_REQUIRED'}); const r=await q(`insert into rooms(owner_id,name,description,category,country,max_seats,status) values($1,$2,$3,$4,$5,$6,'live') returning *`,[req.user.sub,name,description,category,country,Math.min(Math.max(Number(maxSeats)||10,1),10)]); res.status(201).json(r.rows[0]); });
+app.post('/api/rooms',auth,async(req,res)=>{ const {name,description='',category='general',country='EG',maxSeats=10}=req.body||{}; if(!name) return res.status(400).json({error:'NAME_REQUIRED'}); const r=await q(`insert into rooms(owner_id,name,description,category,country,max_seats,status) values($1,$2,$3,$4,$5,$6,'live') returning *`,[req.user.sub,name,description,category,country,Math.min(Math.max(Number(maxSeats)||10,1),15)]); res.status(201).json(r.rows[0]); });
 app.post('/api/rooms/:id/join',auth,async(req,res)=>{ const r=await q(`insert into room_members(room_id,user_id) values($1,$2) on conflict do nothing returning *`,[req.params.id,req.user.sub]); await q(`update rooms set viewer_count=viewer_count+1 where id=$1`,[req.params.id]); res.json({joined:true,member:r.rows[0]||null}); });
 app.post('/api/rooms/:id/leave',auth,async(req,res)=>{ await q(`delete from room_members where room_id=$1 and user_id=$2`,[req.params.id,req.user.sub]); await q(`update rooms set viewer_count=greatest(viewer_count-1,0) where id=$1`,[req.params.id]); res.json({left:true}); });
 app.get('/api/rooms/:id/messages',auth,async(req,res)=>{ const r=await q(`select m.*,p.display_name,p.avatar_url from room_messages m join profiles p on p.user_id=m.user_id where m.room_id=$1 order by m.created_at desc limit 100`,[req.params.id]); res.json(r.rows.reverse()); });
@@ -66,4 +66,4 @@ app.get('/api/admin/reports',auth,admin,async(_,res)=>{ const r=await q(`select 
 io.use((socket,next)=>{ try { const t=socket.handshake.auth?.token; socket.user=jwt.verify(t,JWT_SECRET); next(); } catch { next(new Error('UNAUTHORIZED')); } });
 io.on('connection',socket=>{ socket.on('room:join',roomId=>socket.join(`room:${roomId}`)); socket.on('room:leave',roomId=>socket.leave(`room:${roomId}`)); });
 
-http.listen(PORT,()=>console.log(`VoiceRoom API listening on :${PORT}`));
+http.listen(PORT,()=>console.log(`TOYO API listening on :${PORT}`));
