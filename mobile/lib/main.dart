@@ -855,11 +855,26 @@ class _RoomPageState extends State<RoomPage> {
     );
   }
 
-  void _showGifts(BuildContext context) {
+  Future<void> _showGifts(BuildContext context) async {
+    String? receiverId;
+    if (widget.roomId != null) {
+      try {
+        final rows = await TajBackend.roomSeats(widget.roomId!).first;
+        for (final row in rows) {
+          final id = row['user_id']?.toString();
+          if (id != null && id != TajBackend.user?.id) {
+            receiverId = id;
+            break;
+          }
+        }
+      } catch (_) {}
+    }
+    if (!context.mounted) return;
     showModalBottomSheet(
       context: context,
       backgroundColor: surface,
-      builder: (_) => const GiftSheet(),
+      isScrollControlled: true,
+      builder: (_) => GiftSheet(roomId: widget.roomId, receiverId: receiverId),
     );
   }
 }
