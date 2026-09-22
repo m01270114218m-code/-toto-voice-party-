@@ -569,6 +569,7 @@ class _RoomPageState extends State<RoomPage> {
   int selectedSeat = -1;
   bool _joined = false;
   bool micOn = false;
+  bool _seatBusy = false;
   final messages = <String>[
     'مرحباً بكم في الغرفة 👋',
     'أهلاً بكل الموجودين ❤️',
@@ -665,21 +666,71 @@ class _RoomPageState extends State<RoomPage> {
                   ),
                 ),
                 Expanded(
-                  child: GridView.builder(
-                    padding: const EdgeInsets.fromLTRB(12, 15, 12, 6),
-                    itemCount: widget.seatCount,
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: widget.seatCount == 15 ? 5 : 4,
-                      childAspectRatio: .70,
-                      crossAxisSpacing: 5,
-                      mainAxisSpacing: 8,
-                    ),
-                    itemBuilder: (_, i) => _Seat(
-                      index: i,
-                      selected: i == selectedSeat,
-                      onTap: () => setState(() => selectedSeat = i),
-                    ),
-                  ),
+                  child: widget.roomId == null
+                      ? GridView.builder(
+                          padding: const EdgeInsets.fromLTRB(12, 15, 12, 6),
+                          itemCount: widget.seatCount,
+                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: widget.seatCount == 15 ? 5 : 4,
+                            childAspectRatio: .70,
+                            crossAxisSpacing: 5,
+                            mainAxisSpacing: 8,
+                          ),
+                          itemBuilder: (_, i) => _Seat(
+                            index: i,
+                            selected: i == selectedSeat,
+                            onTap: () => setState(() => selectedSeat = i),
+                          ),
+                        )
+                      : StreamBuilder<List<Map<String, dynamic>>>(
+                          stream: TajBackend.roomSeats(widget.roomId!),
+                          builder: (context, snapshot) {
+                            final rows = snapshot.data ?? const <Map<String, dynamic>>[];
+                            return GridView.builder(
+                              padding: const EdgeInsets.fromLTRB(12, 15, 12, 6),
+                              itemCount: widget.seatCount,
+                              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: widget.seatCount == 15 ? 5 : 4,
+                                childAspectRatio: .70,
+                                crossAxisSpacing: 5,
+                                mainAxisSpacing: 8,
+                              ),
+                              itemBuilder: (_, i) {
+                                final seatNo = i + 1;
+                                final row = rows.cast<Map<String, dynamic>?>().firstWhere(
+                                  (x) => x?['seat_number'] == seatNo,
+                                  orElse: () => null,
+                                );
+                                final occupied = row?['user_id'] != null;
+                                final mine = row?['user_id'] == TajBackend.user?.id;
+                                return _Seat(
+                                  index: i,
+                                  selected: mine,
+                                  occupied: occupied,
+                                  onTap: () async {
+                                    if (_seatBusy) return;
+                                    setState(() => _seatBusy = true);
+                                    try {
+                                      if (mine) {
+                                        await TajBackend.releaseSeat(widget.roomId!, seatNo);
+                                        if (mounted) setState(() => selectedSeat = -1);
+                                      } else if (!occupied) {
+                                        await TajBackend.requestSeat(widget.roomId!, seatNo);
+                                        if (mounted) setState(() => selectedSeat = i);
+                                      }
+                                    } catch (e) {
+                                      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text('تعذر تغيير المقعد: $e')),
+                                      );
+                                    } finally {
+                                      if (mounted) setState(() => _seatBusy = false);
+                                    }
+                                  },
+                                );
+                              },
+                            );
+                          },
+                        ),
                 ),
                 Container(
                   margin: const EdgeInsets.fromLTRB(12, 4, 12, 10),
@@ -799,11 +850,13 @@ class _RoomPageState extends State<RoomPage> {
 class _Seat extends StatelessWidget {
   final int index;
   final bool selected;
+  final bool occupied;
   final VoidCallback onTap;
 
   const _Seat({
     required this.index,
     required this.selected,
+    this.occupied = false,
     required this.onTap,
   });
 
@@ -822,7 +875,7 @@ class _Seat extends StatelessWidget {
                 colors: [Color(0xFF67269D), Color(0xFF1B1026)],
               ),
               border: Border.all(
-                color: selected ? gold : royal2.withOpacity(.35),
+                color: selected ? gold : (occupied ? Colors.redAccent : royal2.withOpacity(.35)),
                 width: selected ? 3 : 1.5,
               ),
               boxShadow: selected
