@@ -295,7 +295,7 @@ class _HomePageState extends State<HomePage> {
                   ),
                   _coinPill(),
                   IconButton(
-                    onPressed: () {},
+                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsPage())),
                     icon: const Icon(Icons.notifications_none),
                   ),
                 ],
@@ -941,89 +941,180 @@ class _RoundButton extends StatelessWidget {
   }
 }
 
-class GiftSheet extends StatelessWidget {
-  const GiftSheet({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    const gifts = [
-      ('🌹', 'وردة', '10'),
-      ('❤️', 'قلب', '20'),
-      ('🚗', 'سيارة', '100'),
-      ('✈️', 'طائرة', '200'),
-      ('🏰', 'قصر', '1000'),
-      ('🐉', 'تنين', '5000'),
-    ];
-
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('إرسال هدية', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 14),
-            GridView.count(
-              shrinkWrap: true,
-              crossAxisCount: 3,
-              children: gifts
-                  .map(
-                    (g) => Card(
-                      color: surface2,
-                      child: InkWell(
-                        onTap: () => Navigator.pop(context),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(g.$1, style: const TextStyle(fontSize: 31)),
-                            Text(g.$2),
-                            Text('${g.$3} 🪙', style: const TextStyle(color: gold)),
-                          ],
-                        ),
-                      ),
-                    ),
-                  )
-                  .toList(),
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
-  }
+class GiftSheet extends StatefulWidget {
+  final String? roomId;
+  final String? receiverId;
+  const GiftSheet({super.key, this.roomId, this.receiverId});
+  @override State<GiftSheet> createState() => _GiftSheetState();
 }
 
-class MomentsPage extends StatelessWidget {
-  const MomentsPage({super.key});
+class _GiftSheetState extends State<GiftSheet> {
+  late Future<List<Map<String, dynamic>>> _future;
+  String? _sending;
+  @override void initState() { super.initState(); _future = TajBackend.gifts(); }
+
+  Future<void> _send(Map<String, dynamic> gift) async {
+    final receiver = widget.receiverId;
+    final room = widget.roomId;
+    if (receiver == null || room == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('اختر متحدثًا على مقعد أولاً')));
+      return;
+    }
+    final id = gift['id']?.toString();
+    if (id == null) return;
+    setState(() => _sending = id);
+    try {
+      await TajBackend.sendGift(receiverId: receiver, giftId: id, quantity: 1, roomId: room);
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تم إرسال ' + (gift['name']?.toString() ?? 'الهدية') + ' 🎁')));
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تعذر إرسال الهدية: ' + e.toString())));
+    } finally {
+      if (mounted) setState(() => _sending = null);
+    }
+  }
+
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('اللحظات')),
-    body: ListView(
-      padding: const EdgeInsets.all(16),
-      children: const [
-        _MomentCard(name: 'سارة', text: 'ليلة جميلة في تاج لايف ✨', likes: 128),
-        _MomentCard(name: 'محمد', text: 'من الغرفة الملكية اليوم ❤️', likes: 84),
-        _MomentCard(name: 'نور', text: 'أهلاً بكل أصدقاء تاج لايف', likes: 61),
-      ],
+  Widget build(BuildContext context) => Directionality(
+    textDirection: TextDirection.rtl,
+    child: Padding(
+      padding: const EdgeInsets.all(18),
+      child: FutureBuilder<List<Map<String, dynamic>>>(
+        future: _future,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) return const SizedBox(height: 220, child: Center(child: CircularProgressIndicator(color: gold)));
+          if (snapshot.hasError) return SizedBox(height: 220, child: Center(child: Text('تعذر تحميل الهدايا: ' + snapshot.error.toString())));
+          final rows = snapshot.data ?? const <Map<String, dynamic>>[];
+          if (rows.isEmpty) return const SizedBox(height: 220, child: Center(child: Text('لا توجد هدايا متاحة')));
+          return Column(mainAxisSize: MainAxisSize.min, children: [
+            const Text('إرسال هدية', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 14),
+            GridView.builder(
+              shrinkWrap: true,
+              itemCount: rows.length,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3),
+              itemBuilder: (_, i) {
+                final g = rows[i];
+                final id = g['id']?.toString();
+                final busy = _sending == id;
+                return Card(
+                  color: surface2,
+                  child: InkWell(
+                    onTap: busy ? null : () => _send(g),
+                    child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                      Text(g['emoji']?.toString() ?? '🎁', style: const TextStyle(fontSize: 31)),
+                      Text(g['name']?.toString() ?? 'هدية'),
+                      Text((g['coin_price']?.toString() ?? '0') + ' 🪙', style: const TextStyle(color: gold)),
+                      if (busy) const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
+                    ]),
+                  ),
+                );
+              },
+            ),
+          ]);
+        },
+      ),
     ),
   );
+}
+
+class NotificationsPage extends StatefulWidget {
+  const NotificationsPage({super.key});
+  @override State<NotificationsPage> createState() => _NotificationsPageState();
+}
+class _NotificationsPageState extends State<NotificationsPage> {
+  late Future<List<Map<String, dynamic>>> _future;
+  @override void initState() { super.initState(); _future = TajBackend.myNotifications(); }
+  @override Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('الإشعارات')),
+    body: FutureBuilder<List<Map<String, dynamic>>>(
+      future: _future,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator(color: gold));
+        if (snapshot.hasError) return Center(child: Text('تعذر تحميل الإشعارات: ' + snapshot.error.toString()));
+        final rows = snapshot.data ?? const <Map<String, dynamic>>[];
+        if (rows.isEmpty) return const Center(child: Text('لا توجد إشعارات جديدة'));
+        return ListView.separated(
+          padding: const EdgeInsets.all(14), itemCount: rows.length,
+          separatorBuilder: (_, __) => const Divider(height: 1),
+          itemBuilder: (_, i) {
+            final n = rows[i]; final read = n['read_at'] != null;
+            return ListTile(
+              leading: Icon(read ? Icons.notifications_none : Icons.notifications_active, color: read ? Colors.white54 : gold),
+              title: Text(n['title']?.toString() ?? 'تاج لايف'),
+              subtitle: Text(n['body']?.toString() ?? ''),
+              onTap: () async {
+                if (!read && n['id'] != null) await TajBackend.markNotificationRead(n['id'].toString());
+                if (mounted) setState(() => _future = TajBackend.myNotifications());
+              },
+            );
+          },
+        );
+      },
+    ),
+  );
+}
+
+class MomentsPage extends StatefulWidget {
+  const MomentsPage({super.key});
+  @override State<MomentsPage> createState() => _MomentsPageState();
+}
+class _MomentsPageState extends State<MomentsPage> {
+  late Future<List<Map<String, dynamic>>> _future;
+  @override void initState() { super.initState(); _future = TajBackend.moments(); }
+  Future<void> _refresh() async { setState(() => _future = TajBackend.moments()); await _future; }
+  @override Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('اللحظات'), actions: [IconButton(onPressed: _compose, icon: const Icon(Icons.add, color: gold))]),
+    body: RefreshIndicator(
+      onRefresh: _refresh,
+      child: FutureBuilder<List<Map<String, dynamic>>>(
+        future: _future,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator(color: gold));
+          if (snapshot.hasError) return Center(child: Text('تعذر تحميل اللحظات: ' + snapshot.error.toString()));
+          final rows = snapshot.data ?? const <Map<String, dynamic>>[];
+          if (rows.isEmpty) return ListView(children: const [SizedBox(height: 220), Center(child: Text('لا توجد لحظات بعد'))]);
+          return ListView.builder(
+            padding: const EdgeInsets.all(16), itemCount: rows.length,
+            itemBuilder: (_, i) {
+              final r = rows[i]; final p = r['profiles'] as Map<String, dynamic>?;
+              return _MomentCard(name: p?['display_name']?.toString() ?? 'مستخدم تاج لايف', text: r['text']?.toString() ?? '', likes: (r['likes_count'] as num?)?.toInt() ?? 0);
+            },
+          );
+        },
+      ),
+    ),
+  );
+  Future<void> _compose() async {
+    final c = TextEditingController();
+    final text = await showDialog<String>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('نشر لحظة'),
+        content: TextField(controller: c, maxLines: 5, autofocus: true, decoration: const InputDecoration(hintText: 'اكتب ما تريد مشاركته...')),
+        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')), FilledButton(onPressed: () => Navigator.pop(context, c.text.trim()), child: const Text('نشر'))],
+      ),
+    );
+    c.dispose();
+    if (text == null || text.isEmpty) return;
+    try { await TajBackend.createMoment(text); if (mounted) setState(() => _future = TajBackend.moments()); }
+    catch (e) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تعذر نشر اللحظة: ' + e.toString()))); }
+  }
 }
 class _MomentCard extends StatelessWidget {
   const _MomentCard({required this.name, required this.text, required this.likes});
   final String name, text; final int likes;
-  @override
-  Widget build(BuildContext context) => Card(
-    color: surface,
-    margin: const EdgeInsets.only(bottom: 12),
+  @override Widget build(BuildContext context) => Card(
+    color: surface, margin: const EdgeInsets.only(bottom: 12),
     child: Padding(padding: const EdgeInsets.all(15), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [const CircleAvatar(backgroundColor: royal, child: Icon(Icons.person)), const SizedBox(width: 9), Text(name, style: const TextStyle(fontWeight: FontWeight.bold)), const Spacer(), const Text('منذ قليل', style: TextStyle(color: Colors.white38))]),
       const SizedBox(height: 12), Text(text, style: const TextStyle(fontSize: 16)), const SizedBox(height: 12),
-      Row(children: [const Icon(Icons.favorite_border, color: gold, size: 19), const SizedBox(width: 5), Text('$likes'), const SizedBox(width: 20), const Icon(Icons.chat_bubble_outline, size: 19), const SizedBox(width: 5), const Text('تعليق')]),
+      Row(children: [const Icon(Icons.favorite_border, color: gold, size: 19), const SizedBox(width: 5), Text(likes.toString()), const SizedBox(width: 20), const Icon(Icons.chat_bubble_outline, size: 19), const SizedBox(width: 5), const Text('تعليق')]),
     ])),
   );
 }
-
 class CreatePage extends StatelessWidget {
   const CreatePage({super.key});
   @override
