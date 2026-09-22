@@ -22,7 +22,7 @@ class VoiceRoom extends StatelessWidget {
       brightness: Brightness.dark,
       scaffoldBackgroundColor: deep,
       colorScheme: ColorScheme.fromSeed(seedColor: purple, brightness: Brightness.dark),
-      fontFamily: 'Arial',
+      fontFamily: 'sans',
       useMaterial3: true,
     ),
     home: const Splash(),
@@ -183,7 +183,7 @@ class _RoomState extends State<Room>{
     try{
       await ToyoApi.joinRoom(widget.roomId!);
       final data=await ToyoApi.rtcToken(widget.roomId!);
-      await voice.join(appId:data['appId'],token:data['token'],channelId:data['channelName'],account:data['uid'],publish:false);
+      if (data['appId'] != null && data['token'] != null && data['channelName'] != null && data['uid'] != null) { await voice.join(appId:data['appId'].toString(),token:data['token'].toString(),channelId:data['channelName'].toString(),account:data['uid'].toString(),publish:false); }
       final state=await ToyoApi.roomState(widget.roomId!);
       final room=state['room'] is Map ? Map<String,dynamic>.from(state['room']) : <String,dynamic>{};
       final msgs=await ToyoApi.messages(widget.roomId!);
@@ -200,7 +200,7 @@ class _RoomState extends State<Room>{
         await ToyoApi.requestSeat(widget.roomId!,selectedSeat+1);
         final data=await ToyoApi.rtcToken(widget.roomId!,publisher:true);
         await voice.leave();
-        await voice.join(appId:data['appId'],token:data['token'],channelId:data['channelName'],account:data['uid'],publish:true);
+        if (data['appId'] != null && data['token'] != null && data['channelName'] != null && data['uid'] != null) { await voice.join(appId:data['appId'].toString(),token:data['token'].toString(),channelId:data['channelName'].toString(),account:data['uid'].toString(),publish:true); }
         setState(() { seat=selectedSeat; mic=false; rtcStatus='أنت على المايك'; });
       }else{
         await ToyoApi.leaveSeat(widget.roomId!,seat+1);
