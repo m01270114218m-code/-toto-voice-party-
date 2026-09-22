@@ -1235,6 +1235,16 @@ class _VipPageState extends State<VipPage>{
   @override void initState(){super.initState();f=TajBackend.vipLevels();}
   @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:const Text('VIP')),body:FutureBuilder<List<Map<String,dynamic>>>(future:f,builder:(c,s)=>ListView(children:(s.data??[]).map((r)=>Card(color:surface,child:ListTile(leading:const Icon(Icons.workspace_premium,color:gold),title:Text('VIP '+r['level'].toString()),subtitle:Text('XP: '+r['xp_required'].toString()))).toList())));
 }
+class SettingsPage extends StatelessWidget {
+  const SettingsPage({super.key});
+  @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:const Text('الإعدادات')),body:ListView(children:[
+    ListTile(leading:const Icon(Icons.notifications_outlined),title:const Text('الإشعارات'),onTap:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const NotificationsPage()))),
+    const ListTile(leading:Icon(Icons.lock_outline),title:Text('الخصوصية والأمان'),subtitle:Text('إعدادات الحساب والحماية')),
+    const ListTile(leading:Icon(Icons.language),title:Text('اللغة'),subtitle:Text('العربية')),
+    const ListTile(leading:Icon(Icons.info_outline),title:Text('عن تاج لايف'),subtitle:Text('الإصدار 1.0.0')),
+  ]));
+}
+
 class CreatePage extends StatelessWidget {
   const CreatePage({super.key});
   @override
