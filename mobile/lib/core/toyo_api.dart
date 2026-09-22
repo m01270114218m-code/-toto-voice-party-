@@ -37,6 +37,18 @@ class ToyoApi {
     return data;
   }
 
+  static Future<List<Map<String,dynamic>>> rooms() async {
+    final t=await token();
+    final headers={'Accept':'application/json',if(t!=null)'Authorization':'Bearer $t'};
+    final response=await http.get(Uri.parse('$baseUrl/api/rooms'),headers:headers);
+    if(response.statusCode<200||response.statusCode>=300) throw ToyoApiException('ROOMS_FAILED',response.statusCode);
+    final decoded=jsonDecode(response.body);
+    return (decoded as List).map((e)=>Map<String,dynamic>.from(e as Map)).toList();
+  }
+
+  static Future<Map<String,dynamic>> createRoom({required String name,String description='',String category='general',int maxSeats=8}) =>
+    request('POST','/api/rooms',body:{'name':name,'description':description,'category':category,'maxSeats':maxSeats});
+
   static Future<Map<String,dynamic>> rtcToken(String roomId,{bool publisher=false}) =>
     request('POST','/api/rtc/token',body:{'roomId':roomId,'role':publisher?'publisher':'audience'});
 
