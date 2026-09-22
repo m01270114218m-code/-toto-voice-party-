@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'backend.dart';
+import 'voice_service.dart';
+import 'payment_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 const bg = Color(0xFF08050D);
@@ -581,6 +583,8 @@ class _RoomPageState extends State<RoomPage> {
   bool _joined = false;
   bool micOn = false;
   bool _seatBusy = false;
+  final TajVoiceService _voice = TajVoiceService();
+  bool _voiceConnected = false;
   final messages = <String>[
     'مرحباً بكم في الغرفة 👋',
     'أهلاً بكل الموجودين ❤️',
@@ -594,6 +598,7 @@ class _RoomPageState extends State<RoomPage> {
     if (widget.roomId != null) {
       TajBackend.leaveRoom(widget.roomId!);
     }
+    _voice.dispose();
     super.dispose();
   }
 
@@ -603,8 +608,14 @@ class _RoomPageState extends State<RoomPage> {
       return;
     }
     try {
-      await TajBackend.setMic(widget.roomId!, selectedSeat + 1, !micOn);
-      if (mounted) setState(() => micOn = !micOn);
+      final next = !micOn;
+      if (!_voiceConnected) {
+        await _voice.connect(widget.roomId!, displayName: TajBackend.user?.id ?? 'guest');
+        _voiceConnected = true;
+      }
+      await _voice.setMicrophone(next);
+      await TajBackend.setMic(widget.roomId!, selectedSeat + 1, next);
+      if (mounted) setState(() => micOn = next);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
