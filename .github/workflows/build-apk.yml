@@ -43,6 +43,19 @@ jobs:
           if marker in s and 'android.permission.RECORD_AUDIO' not in s:
               p.write_text(s.replace(marker,perms,1))
           PY
+      - name: Force all Android subprojects to compile with SDK 36
+        working-directory: mobile
+        run: |
+          cat >> android/build.gradle <<'GRADLE'
+          subprojects {
+            afterEvaluate { project ->
+              def android = project.extensions.findByName("android")
+              if (android != null) {
+                try { android.compileSdkVersion 36 } catch (ignored) {}
+              }
+            }
+          }
+          GRADLE
       - name: Get dependencies
         working-directory: mobile
         run: flutter pub get
