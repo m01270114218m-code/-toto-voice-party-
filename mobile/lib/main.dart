@@ -184,8 +184,10 @@ class _RoomState extends State<Room>{
       await ToyoApi.joinRoom(widget.roomId!);
       final data=await ToyoApi.rtcToken(widget.roomId!);
       await voice.join(appId:data['appId'],token:data['token'],channelId:data['channelName'],account:data['uid'],publish:false);
+      final state=await ToyoApi.roomState(widget.roomId!);
+      final room=state['room'] is Map ? Map<String,dynamic>.from(state['room']) : <String,dynamic>{};
       final msgs=await ToyoApi.messages(widget.roomId!);
-      if(mounted)setState((){messages
+      if(mounted)setState((){maxSeats=[8,10,15].contains(int.tryParse('${room['max_seats']}')??8)?int.tryParse('${room['max_seats']}')!:8;ownerId=room['owner_id']?.toString();messages
         ..clear()
         ..addAll(msgs.map((m)=>'${m['display_name']??''}: ${m['text']??''}')); joining=false;rtcStatus='متصل صوتياً';});
     }catch(e){if(mounted)setState(() { joining=false; rtcStatus='الصوت غير مهيأ بعد — أضف مفاتيح Agora'; });}
@@ -217,14 +219,14 @@ class _RoomState extends State<Room>{
         const SizedBox(height:10),
         Padding(padding:const EdgeInsets.symmetric(horizontal:16),child:Row(children:[const Icon(Icons.circle,size:9,color:Colors.greenAccent),const SizedBox(width:6),Expanded(child:Text(rtcStatus,style:const TextStyle(color:Colors.white70)))])),
         const SizedBox(height:10),
-        Expanded(child:GridView.count(crossAxisCount:5,childAspectRatio:.75,padding:const EdgeInsets.all(12),children:List.generate(10,(i)=>seatWidget(i)))),
+        Expanded(child:GridView.count(crossAxisCount:5,childAspectRatio:.75,padding:const EdgeInsets.all(12),children:List.generate(maxSeats,(i)=>seatWidget(i)))),
         Container(margin:const EdgeInsets.all(12),padding:const EdgeInsets.all(12),decoration:BoxDecoration(color:Colors.black45,borderRadius:BorderRadius.circular(20)),height:220,child:Column(children:[
           const Row(children:[Text('الكل',style:TextStyle(fontWeight:FontWeight.bold,color:Colors.purpleAccent)),SizedBox(width:20),Text('دردشة'),SizedBox(width:20),Text('هدايا')]),
           const SizedBox(height:8),Expanded(child:ListView(children:messages.map((m)=>Padding(padding:const EdgeInsets.symmetric(vertical:5),child:Text(m))).toList())),
           Row(children:[Expanded(child:TextField(onSubmitted:(v){if(v.trim().isNotEmpty)setState(()=>messages.add(v));},decoration:const InputDecoration(hintText:'اكتب رسالة...',isDense:true))),IconButton(onPressed:(){},icon:const Icon(Icons.card_giftcard,color:gold))])
         ])),
         Padding(padding:const EdgeInsets.fromLTRB(12,0,12,12),child:Row(children:[
-          _round(Icons.card_giftcard,gold,(){showModalBottomSheet(context:c,backgroundColor:const Color(0xFF160A28),builder:(_)=>GiftSheet());}),
+          _round(Icons.card_giftcard,gold,(){showModalBottomSheet(context:c,isScrollControlled:true,backgroundColor:const Color(0xFF160A28),builder:(_)=>GiftSheet(roomId:widget.roomId,receiverId:ownerId));}),
           _round(mic?Icons.mic_off:Icons.mic,Colors.white,() async {final next=!mic; if(seat>=0){await voice.setMuted(next);setState(()=>mic=next);} }),
           _round(Icons.add_reaction,Colors.pink,(){}),
           Expanded(child:FilledButton(onPressed:_toggleSeat,child:Text(seat<0?'طلب مقعد':'مغادرة المقعد'))),
@@ -238,7 +240,33 @@ class _RoomState extends State<Room>{
   Widget _round(IconData icon,Color col,VoidCallback f)=>Padding(padding:const EdgeInsets.only(left:6),child:CircleAvatar(backgroundColor:Colors.white10,child:IconButton(onPressed:f,icon:Icon(icon,color:col))));
 }
 
-class GiftSheet extends StatelessWidget{ GiftSheet({super.key}); final gifts=const [('وردة',10,'🌹'),('قلب',20,'❤️'),('سيارة',100,'🚗'),('طائرة',200,'✈️'),('قصر',1000,'🏰'),('تنين',5000,'🐉')]; @override Widget build(BuildContext c)=>Padding(padding:const EdgeInsets.all(18),child:Column(mainAxisSize:MainAxisSize.min,children:[const Text('الهدايا المتحركة',style:TextStyle(fontSize:22,fontWeight:FontWeight.w900,color:gold)),const SizedBox(height:15),GridView.count(shrinkWrap:true,crossAxisCount:3,children:gifts.map((g)=>Card(child:InkWell(onTap:()=>Navigator.pop(c),child:Column(mainAxisAlignment:MainAxisAlignment.center,children:[Text(g.$3,style:const TextStyle(fontSize:35)),Text(g.$1),Text('${g.$2} 🪙',style:const TextStyle(color:gold))])))).toList())])); }
+class GiftSheet extends StatefulWidget{
+  final String? roomId; final String? receiverId;
+  const GiftSheet({super.key,this.roomId,this.receiverId});
+  @override State<GiftSheet> createState()=>_GiftSheetState();
+}
+class _GiftSheetState extends State<GiftSheet>{
+  bool loading=true; bool sending=false; List<Map<String,dynamic>> gifts=[];
+  @override void initState(){super.initState();_load();}
+  Future<void> _load() async { try { final data=await ToyoApi.gifts(); if(mounted)setState(()=>gifts=data); } catch (_) {} if(mounted)setState(()=>loading=false); }
+  Future<void> _send(Map<String,dynamic> gift) async {
+    if(widget.roomId==null){Navigator.pop(context);return;}
+    setState(()=>sending=true);
+    try { await ToyoApi.sendGift(roomId:widget.roomId!,giftId:gift['id'].toString(),receiverId:widget.receiverId); if(mounted){Navigator.pop(context);ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('تم إرسال الهدية بنجاح 🎁')));} }
+    catch(e){if(mounted){setState(()=>sending=false);ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('تعذر إرسال الهدية: $e')));}}
+  }
+  @override Widget build(BuildContext c)=>Directionality(textDirection:TextDirection.rtl,child:Padding(padding:const EdgeInsets.fromLTRB(18,18,18,30),child:Column(mainAxisSize:MainAxisSize.min,children:[
+    Row(children:[const Expanded(child:Text('إرسال هدية',style:TextStyle(fontSize:23,fontWeight:FontWeight.w900,color:gold))),if(sending)const SizedBox(width:20,height:20,child:CircularProgressIndicator(strokeWidth:2,color:gold))]),
+    const SizedBox(height:14),
+    if(loading)const Padding(padding:EdgeInsets.all(30),child:CircularProgressIndicator(color:gold))
+    else if(gifts.isEmpty)const Padding(padding:EdgeInsets.all(30),child:Text('لا توجد هدايا متاحة حالياً',style:TextStyle(color:Colors.white60)))
+    else GridView.count(shrinkWrap:true,crossAxisCount:3,mainAxisSpacing:8,crossAxisSpacing:8,children:gifts.map((g)=>Card(color:const Color(0xFF24123A),child:InkWell(onTap:sending?null:()=>_send(g),child:Column(mainAxisAlignment:MainAxisAlignment.center,children:[
+      const Text('🎁',style:TextStyle(fontSize:34)),
+      Text(g['name']?.toString()??'هدية',maxLines:1,overflow:TextOverflow.ellipsis),
+      Text('${g['price']??0} 🪙',style:const TextStyle(color:gold,fontWeight:FontWeight.bold)),
+    ])))).toList())
+  ])));
+}
 
 class CreateRoom extends StatefulWidget{ const CreateRoom({super.key}); @override State<CreateRoom> createState()=>_CreateRoomState(); }
 class _CreateRoomState extends State<CreateRoom>{
