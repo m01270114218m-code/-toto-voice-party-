@@ -586,6 +586,23 @@ class _RoomPageState extends State<RoomPage> {
     super.dispose();
   }
 
+  Future<void> _toggleMic() async {
+    if (widget.roomId == null || selectedSeat < 0 || TajBackend.user == null) {
+      if (mounted) setState(() => micOn = !micOn);
+      return;
+    }
+    try {
+      await TajBackend.setMic(widget.roomId!, selectedSeat + 1, !micOn);
+      if (mounted) setState(() => micOn = !micOn);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('تعذر تغيير حالة الميكروفون: $e')),
+        );
+      }
+    }
+  }
+
   Future<void> _sendMessage(String value) async {
     if (value.trim().isEmpty) return;
     final roomId = widget.roomId;
@@ -816,7 +833,7 @@ class _RoomPageState extends State<RoomPage> {
                       _RoundButton(
                         icon: micOn ? Icons.mic : Icons.mic_off,
                         color: Colors.white,
-                        onTap: () => setState(() => micOn = !micOn),
+                        onTap: _toggleMic,
                       ),
                       _RoundButton(icon: Icons.add_reaction, color: royal2, onTap: () {}),
                       const SizedBox(width: 8),
