@@ -33,7 +33,7 @@ class Splash extends StatefulWidget { const Splash({super.key}); @override State
 class _SplashState extends State<Splash> {
   @override void initState(){super.initState(); Future.delayed(const Duration(seconds:2),() async {
     final p=await SharedPreferences.getInstance();
-    final logged=p.getBool('logged')??false;
+    final logged=(p.getBool('logged')??false)&&await ToyoApi.token()!=null;
     if(!mounted)return;
     Navigator.pushReplacement(context,MaterialPageRoute(builder:(_)=>logged?const Home():const Login()));
   });}
