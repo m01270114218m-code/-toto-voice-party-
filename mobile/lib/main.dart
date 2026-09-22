@@ -105,37 +105,69 @@ class _LoginState extends State<Login>{
 class Home extends StatefulWidget { const Home({super.key}); @override State<Home> createState()=>_HomeState(); }
 class _HomeState extends State<Home>{
   int tab=0;
-  final rooms=['مجلس TOYO','سهرة القمر','عشاق الطرب','VIP Lounge','أصدقاء مصر','ليلة الألعاب'];
+  bool loading=true;
+  String? error;
+  List<Map<String,dynamic>> rooms=[];
+  @override void initState(){super.initState();_loadRooms();}
+  Future<void> _loadRooms() async {
+    setState(()=>loading=true);
+    try{final data=await ToyoApi.rooms();if(mounted)setState((){rooms=data;loading=false;error=null;});}
+    catch(e){if(mounted)setState((){loading=false;error='تعذر الاتصال بالخادم';});}
+  }
   @override Widget build(BuildContext c){
     final pages=[homeBody(c),const Moments(),const Messages(),const Profile()];
-    return Scaffold(body:pages[tab],bottomNavigationBar:NavigationBar(selectedIndex:tab,onDestinationSelected:(v)=>setState(()=>tab=v),destinations:const[
-      NavigationDestination(icon:Icon(Icons.home_outlined),selectedIcon:Icon(Icons.home),label:'الرئيسية'),
-      NavigationDestination(icon:Icon(Icons.chat_bubble_outline),selectedIcon:Icon(Icons.chat),label:'اللحظات'),
-      NavigationDestination(icon:Icon(Icons.chat_bubble_outline),selectedIcon:Icon(Icons.chat),label:'الرسائل'),
-      NavigationDestination(icon:Icon(Icons.person_outline),selectedIcon:Icon(Icons.person),label:'أنا'),
-    ]));
+    return Directionality(textDirection:TextDirection.rtl,child:Scaffold(
+      body:pages[tab],
+      floatingActionButton:FloatingActionButton(
+        backgroundColor:gold,foregroundColor:deep,
+        onPressed:()=>Navigator.push(c,MaterialPageRoute(builder:(_)=>const CreateRoom())).then((_){_loadRooms();}),
+        child:const Icon(Icons.add),
+      ),
+      floatingActionButtonLocation:FloatingActionButtonLocation.centerDocked,
+      bottomNavigationBar:NavigationBar(selectedIndex:tab,onDestinationSelected:(v)=>setState(()=>tab=v),destinations:const[
+        NavigationDestination(icon:Icon(Icons.home_outlined),selectedIcon:Icon(Icons.home),label:'الرئيسية'),
+        NavigationDestination(icon:Icon(Icons.auto_awesome_mosaic_outlined),selectedIcon:Icon(Icons.auto_awesome_mosaic),label:'اللحظات'),
+        NavigationDestination(icon:Icon(Icons.mail_outline),selectedIcon:Icon(Icons.mail),label:'الرسائل'),
+        NavigationDestination(icon:Icon(Icons.person_outline),selectedIcon:Icon(Icons.person),label:'أنا'),
+      ]),
+    ));
   }
-  Widget homeBody(BuildContext c)=>SafeArea(child:CustomScrollView(slivers:[
-    SliverToBoxAdapter(child:Padding(padding:const EdgeInsets.all(16),child:Row(children:[
-      const CircleAvatar(backgroundImage:NetworkImage('https://i.pravatar.cc/100?img=12')),
-      const SizedBox(width:10),const Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text('مرحباً 👋'),Text('أمير القلوب',style:TextStyle(fontSize:18,fontWeight:FontWeight.bold))])),
-      _pill('5,250',Icons.monetization_on,color:gold),IconButton(onPressed:(){},icon:const Icon(Icons.notifications_none))
+  Widget homeBody(BuildContext c)=>SafeArea(child:RefreshIndicator(onRefresh:_loadRooms,child:CustomScrollView(slivers:[
+    SliverToBoxAdapter(child:Padding(padding:const EdgeInsets.fromLTRB(18,18,18,8),child:Row(children:[
+      Container(width:50,height:50,decoration:BoxDecoration(shape:BoxShape.circle,gradient:const LinearGradient(colors:[purple,gold]),border:Border.all(color:gold,width:1.5)),child:const Icon(Icons.person,color:Colors.white)),
+      const SizedBox(width:12),const Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text('مرحباً بك',style:TextStyle(color:Colors.white60,fontSize:12)),Text('TOYO',style:TextStyle(fontSize:22,fontWeight:FontWeight.w900,color:gold2))])),
+      _pill('Coins',Icons.monetization_on,color:gold),const SizedBox(width:6),IconButton(onPressed:(){},icon:const Icon(Icons.notifications_none,color:gold2))
     ]))),
-    SliverToBoxAdapter(child:Padding(padding:const EdgeInsets.symmetric(horizontal:16),child:FilledButton.icon(onPressed:(){Navigator.push(c,MaterialPageRoute(builder:(_)=>const CreateRoom()));},icon:const Icon(Icons.add),label:const Text('إنشاء غرفة صوتية')))),
-    SliverToBoxAdapter(child:SingleChildScrollView(scrollDirection:Axis.horizontal,padding:const EdgeInsets.all(16),child:Row(children:['الرائجة','أتابعها','حفلات','ألعاب','موسيقى','VIP','قبائل','وكالات'].map((x)=>Padding(padding:const EdgeInsets.only(left:8),child:Chip(label:Text(x)))).toList()))),
-    SliverToBoxAdapter(child:const Padding(padding:EdgeInsets.fromLTRB(16,4,16,10),child:Text('الغرف الصوتية المباشرة',style:TextStyle(fontSize:22,fontWeight:FontWeight.w900,color:gold)))),
-    SliverList(delegate:SliverChildBuilderDelegate((_,i)=>roomCard(c,rooms[i],i),childCount:rooms.length)),
-  ]));
-  Widget roomCard(BuildContext c,String name,int i)=>Padding(padding:const EdgeInsets.fromLTRB(16,0,16,10),child:InkWell(
-    onTap:()=>Navigator.push(c,MaterialPageRoute(builder:(_)=>Room(name:name))),
-    child:Container(padding:const EdgeInsets.all(12),decoration:BoxDecoration(borderRadius:BorderRadius.circular(20),gradient:const LinearGradient(colors:[Color(0xFF1A0B28),Color(0xFF08060B)],begin:Alignment.topRight,end:Alignment.bottomLeft),border:Border.all(color:purple.withOpacity(.35))),child:Row(children:[
-      ClipRRect(borderRadius:BorderRadius.circular(14),child:Image.network('https://picsum.photos/seed/$i/100',width:75,height:75,fit:BoxFit.cover)),
-      const SizedBox(width:12),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-        Row(children:[Expanded(child:Text(name,style:const TextStyle(fontSize:17,fontWeight:FontWeight.w900,color:gold2))),Container(padding:const EdgeInsets.symmetric(horizontal:7,vertical:3),decoration:BoxDecoration(color:Colors.redAccent,borderRadius:BorderRadius.circular(7)),child:const Text('LIVE',style:TextStyle(fontSize:10)))]),
-        const SizedBox(height:8),const Text('👑 VIP • 🇪🇬 مصر • 1.2K موجود',style:TextStyle(color:Colors.white60)),
-        const SizedBox(height:8),Row(children:List.generate(4,(j)=>Padding(padding:const EdgeInsets.only(left:4),child:CircleAvatar(radius:12,backgroundImage:NetworkImage('https://i.pravatar.cc/60?img=${j+20}')))))
+    SliverToBoxAdapter(child:Container(margin:const EdgeInsets.all(16),padding:const EdgeInsets.all(18),decoration:BoxDecoration(borderRadius:BorderRadius.circular(24),gradient:const LinearGradient(colors:[Color(0xFF3B1761),Color(0xFF12071B)]),border:Border.all(color:gold.withOpacity(.35))),child:Row(children:[
+      const Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text('مجتمع TOYO',style:TextStyle(fontSize:24,fontWeight:FontWeight.w900,color:gold2)),SizedBox(height:5),Text('غرف صوتية مباشرة • هدايا • VIP',style:TextStyle(color:Colors.white70))])),
+      Container(width:64,height:64,decoration:BoxDecoration(shape:BoxShape.circle,color:Colors.black38,border:Border.all(color:gold,width:2)),child:const Icon(Icons.mic,color:gold,size:32))
+    ]))),
+    SliverToBoxAdapter(child:SingleChildScrollView(scrollDirection:Axis.horizontal,padding:const EdgeInsets.symmetric(horizontal:16,vertical:4),child:Row(children:['الرائجة','أتابعها','حفلات','ألعاب','موسيقى','VIP','قبائل','وكالات'].map((x)=>Padding(padding:const EdgeInsets.only(left:8),child:Chip(label:Text(x)))).toList()))),
+    SliverToBoxAdapter(child:Padding(padding:const EdgeInsets.fromLTRB(18,18,18,12),child:Row(children:[const Expanded(child:Text('الغرف المباشرة',style:TextStyle(fontSize:22,fontWeight:FontWeight.w900,color:gold))),Text('${rooms.length} غرفة',style:const TextStyle(color:Colors.white54))]))),
+    if(loading) const SliverFillRemaining(hasScrollBody:false,child:Center(child:CircularProgressIndicator(color:gold)))
+    else if(error!=null) SliverFillRemaining(hasScrollBody:false,child:Center(child:Column(mainAxisSize:MainAxisSize.min,children:[Text(error!,style:const TextStyle(color:Colors.white70)),const SizedBox(height:12),FilledButton(onPressed:_loadRooms,child:const Text('إعادة المحاولة'))])))
+    else if(rooms.isEmpty) const SliverFillRemaining(hasScrollBody:false,child:Center(child:Text('لا توجد غرف مباشرة حالياً',style:TextStyle(color:Colors.white60))))
+    else SliverList(delegate:SliverChildBuilderDelegate((_,i)=>roomCard(c,rooms[i]),childCount:rooms.length)),
+    const SliverToBoxAdapter(child:SizedBox(height:80))
+  ])));
+  Widget roomCard(BuildContext c,Map<String,dynamic> room){
+    final id=room['id']?.toString();
+    final name=room['name']?.toString()??'غرفة TOYO';
+    final owner=room['owner_name']?.toString()??'مضيف TOYO';
+    final viewers=room['viewer_count']?.toString()??'0';
+    return Padding(padding:const EdgeInsets.fromLTRB(16,0,16,12),child:InkWell(
+      borderRadius:BorderRadius.circular(22),
+      onTap:id==null?null:()=>Navigator.push(c,MaterialPageRoute(builder:(_)=>Room(name:name,roomId:id))),
+      child:Container(padding:const EdgeInsets.all(14),decoration:BoxDecoration(borderRadius:BorderRadius.circular(22),gradient:const LinearGradient(colors:[Color(0xFF241039),Color(0xFF0A0710)],begin:Alignment.topRight,end:Alignment.bottomLeft),border:Border.all(color:gold.withOpacity(.22))),child:Row(children:[
+        Container(width:76,height:76,decoration:BoxDecoration(borderRadius:BorderRadius.circular(18),gradient:const LinearGradient(colors:[purple,Color(0xFF180D25)]),border:Border.all(color:gold.withOpacity(.5))),child:const Icon(Icons.mic,color:gold,size:34)),
+        const SizedBox(width:12),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+          Row(children:[Expanded(child:Text(name,style:const TextStyle(fontSize:17,fontWeight:FontWeight.w900,color:gold2))),Container(padding:const EdgeInsets.symmetric(horizontal:8,vertical:4),decoration:BoxDecoration(color:Colors.redAccent.withOpacity(.16),borderRadius:BorderRadius.circular(8),border:Border.all(color:Colors.redAccent.withOpacity(.5))),child:const Text('LIVE',style:TextStyle(fontSize:10,color:Colors.redAccent,fontWeight:FontWeight.bold)))]),
+          const SizedBox(height:7),Text('$owner • $viewers مستمع',style:const TextStyle(color:Colors.white60)),
+          const SizedBox(height:8),Row(children:[const Icon(Icons.card_giftcard,size:15,color:gold),const SizedBox(width:5),Text('هدايا • VIP • دردشة',style:const TextStyle(fontSize:12,color:Colors.white54))])
+        ]))
       ]))
-    ]))));
+    ));
+  }
 }
 
 Widget _pill(String t,IconData i,{Color color=Colors.white})=>Container(padding:const EdgeInsets.symmetric(horizontal:10,vertical:7),decoration:BoxDecoration(color:Colors.white10,borderRadius:BorderRadius.circular(20)),child:Row(children:[Icon(i,size:16,color:color),const SizedBox(width:4),Text(t)]));
