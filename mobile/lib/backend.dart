@@ -305,6 +305,19 @@ class TajBackend {
     return List<Map<String, dynamic>>.from(result);
   }
 
+  static Future<List<Map<String, dynamic>>> adminReports() async {
+    final result = await client.from('reports').select().order('created_at', ascending: false).limit(100);
+    return List<Map<String, dynamic>>.from(result);
+  }
+
+  static Future<List<Map<String, dynamic>>> adminUsers({String query = ''}) async {
+    final q = query.trim();
+    var request = client.from('profiles').select('id,display_name,username,public_id,level,vip_level,coins,diamonds,is_admin,is_banned,created_at');
+    if (q.isNotEmpty) request = request.or('display_name.ilike.%$q%,username.ilike.%$q%,public_id.eq.$q');
+    final result = await request.order('created_at', ascending: false).limit(100);
+    return List<Map<String, dynamic>>.from(result);
+  }
+
   static Future<List<Map<String, dynamic>>> gifts() async {
     final result = await client
         .from('gifts')
