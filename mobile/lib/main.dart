@@ -147,7 +147,7 @@ class _RoomState extends State<Room>{
   bool mic=false; int seat=-1; int selectedSeat=0; bool joining=true; String rtcStatus='جاري الاتصال بالغرفة...';
   @override void initState(){super.initState(); _connect();}
   Future<void> _connect() async {
-    if(widget.roomId==null){setState(()=>{joining=false,rtcStatus='هذه غرفة عرض فقط'});return;}
+    if(widget.roomId==null){setState(() { joining=false; rtcStatus='هذه غرفة عرض فقط'; });return;}
     try{
       await ToyoApi.joinRoom(widget.roomId!);
       final data=await ToyoApi.rtcToken(widget.roomId!);
@@ -156,7 +156,7 @@ class _RoomState extends State<Room>{
       if(mounted)setState((){messages
         ..clear()
         ..addAll(msgs.map((m)=>'${m['display_name']??''}: ${m['text']??''}')); joining=false;rtcStatus='متصل صوتياً';});
-    }catch(e){if(mounted)setState(()=>{joining=false,rtcStatus='الصوت غير مهيأ بعد — أضف مفاتيح Agora'});}
+    }catch(e){if(mounted)setState(() { joining=false; rtcStatus='الصوت غير مهيأ بعد — أضف مفاتيح Agora'; });}
   }
   @override void dispose(){voice.leave(); if(widget.roomId!=null) ToyoApi.leaveRoom(widget.roomId!); super.dispose();}
   Future<void> _toggleSeat() async {
@@ -167,13 +167,13 @@ class _RoomState extends State<Room>{
         final data=await ToyoApi.rtcToken(widget.roomId!,publisher:true);
         await voice.leave();
         await voice.join(appId:data['appId'],token:data['token'],channelId:data['channelName'],account:data['uid'],publish:true);
-        setState(()=>{seat=selectedSeat, mic=false,rtcStatus='أنت على المايك'});
+        setState(() { seat=selectedSeat; mic=false; rtcStatus='أنت على المايك'; });
       }else{
         await ToyoApi.leaveSeat(widget.roomId!,seat+1);
         await voice.leave();
         final data=await ToyoApi.rtcToken(widget.roomId!);
         await voice.join(appId:data['appId'],token:data['token'],channelId:data['channelName'],account:data['uid'],publish:false);
-        setState(()=>{seat=-1,mic=true,rtcStatus='متصل كمستمع'});
+        setState(() { seat=-1; mic=true; rtcStatus='متصل كمستمع'; });
       }
     }catch(e){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('تعذر تغيير المقعد: $e')));}
   }
