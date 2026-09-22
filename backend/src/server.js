@@ -100,14 +100,29 @@ app.post('/api/rooms/:id/seats/:seatNo/leave',auth,async(req,res)=>{
   io.to(`room:${req.params.id}`).emit('room:seat', {roomId:req.params.id,seatNo,userId:null});
   res.json({ok:true});
 });
-app.post('/api/rooms/:id/join',auth,async(req,res)=>{ const r=await q(`insert into room_members(room_id,user_id) values($1,$2) on conflict do nothing returning *`,[req.params.id,req.user.sub]); await q(`update rooms set viewer_count=viewer_count+1 where id=$1`,[req.params.id]); res.json({joined:true,member:r.rows[0]||null}); });
-app.post('/api/rooms/:id/leave',auth,async(req,res)=>{ await q(`delete from room_members where room_id=$1 and user_id=$2`,[req.params.id,req.user.sub]); await q(`update rooms set viewer_count=greatest(viewer_count-1,0) where id=$1`,[req.params.id]); res.json({left:true}); });
+app.post('/api/rooms/:id/join',auth,async(req,res)=>{
+  const room=(await q(`select id,status from rooms where id=$1`,[req.params.id])).rows[0];
+  if(!room||room.status!=='live') return res.status(404).json({error:'ROOM_NOT_FOUND'});
+  const ban=(await q(`select 1 from room_bans where room_id=$1 and user_id=$2 and (expires_at is null or expires_at>now())`,[req.params.id,req.user.sub])).rowCount;
+  if(ban) return res.status(403).json({error:'ROOM_BANNED'});
+  const r=await q(`insert into room_members(room_id,user_id) values($1,$2) on conflict do nothing returning *`,[req.params.id,req.user.sub]);
+  if(r.rowCount) await q(`update rooms set viewer_count=viewer_count+1 where id=$1`,[req.params.id]);
+  res.json({joined:true,member:r.rows[0]||null,alreadyJoined:r.rowCount===0});
+});
+app.post('/api/rooms/:id/leave',auth,async(req,res)=>{
+  const r=await q(`delete from room_members where room_id=$1 and user_id=$2 returning user_id`,[req.params.id,req.user.sub]);
+  if(r.rowCount) await q(`update rooms set viewer_count=greatest(viewer_count-1,0) where id=$1`,[req.params.id]);
+  res.json({left:true,wasMember:r.rowCount===1});
+});
 app.get('/api/rooms/:id/messages',auth,async(req,res)=>{ const r=await q(`select m.*,p.display_name,p.avatar_url from room_messages m join profiles p on p.user_id=m.user_id where m.room_id=$1 order by m.created_at desc limit 100`,[req.params.id]); res.json(r.rows.reverse()); });
 app.post('/api/rooms/:id/messages',auth,async(req,res)=>{ const text=String(req.body?.text||'').trim(); if(!text||text.length>500) return res.status(400).json({error:'INVALID_MESSAGE'}); const r=await q(`insert into room_messages(room_id,user_id,text) values($1,$2,$3) returning *`,[req.params.id,req.user.sub,text]); const msg=r.rows[0]; io.to(`room:${req.params.id}`).emit('room:message',msg); res.status(201).json(msg); });
 app.get('/api/wallet',auth,async(req,res)=>{ const r=await q(`select currency,coalesce(sum(amount),0)::bigint balance from wallet_ledger where user_id=$1 group by currency`,[req.user.sub]); res.json(r.rows); });
 app.post('/api/gifts/send',auth,async(req,res)=>{
   const {roomId,receiverId,giftId,quantity=1,idempotencyKey=crypto.randomUUID()}=req.body||{};
-  const c=await pool.connect(); try { await c.query('begin'); const g=(await c.query(`select * from gifts where id=$1 and active=true`,[giftId])).rows[0]; if(!g) throw new Error('GIFT_NOT_FOUND'); const total=BigInt(g.price)*BigInt(quantity); const bal=(await c.query(`select coalesce(sum(amount),0)::bigint balance from wallet_ledger where user_id=$1 and currency='coins'`,[req.user.sub])).rows[0].balance; if(BigInt(bal)<total) throw new Error('INSUFFICIENT_COINS'); await c.query(`insert into wallet_ledger(user_id,currency,amount,type,reference_id,metadata) values($1,'coins',$2,'gift_spend',$3,$4),($1,'diamonds',$5,'gift_receive',$3,$6)`,[req.user.sub,(-total).toString(),idempotencyKey,JSON.stringify({roomId,receiverId,giftId,quantity}),total.toString(),JSON.stringify({roomId,senderId:req.user.sub,giftId,quantity})]); const t=await c.query(`insert into gift_transactions(sender_id,receiver_id,room_id,gift_id,quantity,unit_price,total_price,idempotency_key) values($1,$2,$3,$4,$5,$6,$7,$8) returning *`,[req.user.sub,receiverId||null,roomId,giftId,quantity,g.price,total.toString(),idempotencyKey]); await c.query('commit'); io.to(`room:${roomId}`).emit('room:gift',t.rows[0]); res.status(201).json(t.rows[0]); } catch(e){ await c.query('rollback'); res.status(400).json({error:e.message}); } finally { c.release(); }
+  const c=await pool.connect(); try { await c.query('begin'); const g=(await c.query(`select * from gifts where id=$1 and active=true`,[giftId])).rows[0]; if(!g) throw new Error('GIFT_NOT_FOUND'); const qty=Number(quantity);
+    if(!Number.isInteger(qty)||qty<1||qty>99) throw new Error('INVALID_QUANTITY');
+    if(g.currency!=='coins') throw new Error('UNSUPPORTED_GIFT_CURRENCY');
+    const total=BigInt(g.price)*BigInt(qty); const bal=(await c.query(`select coalesce(sum(amount),0)::bigint balance from wallet_ledger where user_id=$1 and currency='coins'`,[req.user.sub])).rows[0].balance; if(BigInt(bal)<total) throw new Error('INSUFFICIENT_COINS'); await c.query(`insert into wallet_ledger(user_id,currency,amount,type,reference_id,metadata) values($1,'coins',$2,'gift_spend',$3,$4),($1,'diamonds',$5,'gift_receive',$3,$6)`,[req.user.sub,(-total).toString(),idempotencyKey,JSON.stringify({roomId,receiverId,giftId,quantity:qty}),total.toString(),JSON.stringify({roomId,senderId:req.user.sub,giftId,quantity:qty})]); const t=await c.query(`insert into gift_transactions(sender_id,receiver_id,room_id,gift_id,quantity,unit_price,total_price,idempotency_key) values($1,$2,$3,$4,$5,$6,$7,$8) returning *`,[req.user.sub,receiverId||null,roomId,giftId,qty,g.price,total.toString(),idempotencyKey]); await c.query('commit'); io.to(`room:${roomId}`).emit('room:gift',t.rows[0]); res.status(201).json(t.rows[0]); } catch(e){ await c.query('rollback'); res.status(400).json({error:e.message}); } finally { c.release(); }
 });
 
 app.get('/api/admin/stats',auth,admin,async(_,res)=>{ const [u,r,g,c]=await Promise.all([q(`select count(*)::int n from users`),q(`select count(*)::int n from rooms where status='live'`),q(`select count(*)::int n from gift_transactions where created_at>now()-interval '1 day'`),q(`select coalesce(sum(amount),0)::bigint n from wallet_ledger where currency='coins'`)]); res.json({users:u.rows[0].n,liveRooms:r.rows[0].n,giftsToday:g.rows[0].n,coins:c.rows[0].n}); });
