@@ -237,6 +237,26 @@ class TajBackend {
     if (data.isNotEmpty) await client.from('rooms').update(data).eq('id', roomId);
   }
 
+  static Future<void> followUser(String targetId) async {
+    final id = user?.id;
+    if (id == null) throw StateError('not_authenticated');
+    if (id == targetId) return;
+    await client.from('user_follows').upsert({'follower_id': id, 'following_id': targetId});
+  }
+
+  static Future<void> unfollowUser(String targetId) async {
+    final id = user?.id;
+    if (id == null) throw StateError('not_authenticated');
+    await client.from('user_follows').delete().eq('follower_id', id).eq('following_id', targetId);
+  }
+
+  static Future<List<Map<String, dynamic>>> following() async {
+    final id = user?.id;
+    if (id == null) return [];
+    final result = await client.from('user_follows').select('following_id, profiles:following_id(display_name,username,public_id,avatar_url)').eq('follower_id', id);
+    return List<Map<String, dynamic>>.from(result);
+  }
+
   static Future<List<Map<String, dynamic>>> searchProfiles(String query) async {
     final q = query.trim();
     if (q.isEmpty) return [];
