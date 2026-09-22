@@ -1,16 +1,14 @@
-# VoiceRoom Pro — Full Production Foundation
+# TOYO — Voice Party
 
-مشروع عربي RTL لتطبيق غرف صوتية احترافي، مع تطبيق Flutter + Backend + لوحة تحكم.
+تطبيق Android عربي RTL لغرف الدردشة الصوتية، مع Backend وواجهة إدارة.
+
+## البناء
+يتم فحص مشروع Flutter (flutter analyze) قبل إنشاء APK، ثم يتم التحقق من وجود ملف APK قبل رفعه.
 
 ## المكونات
-- `mobile/`: تطبيق Android Flutter.
-- `backend/`: API Node.js + PostgreSQL + Socket.IO، ويشمل Auth/Rooms/Chat/Wallet/Gifts/Admin.
-- `admin/`: لوحة تحكم Web.
-- `.github/workflows/build-apk.yml`: بناء APK تلقائي عبر GitHub Actions.
-- `DEPLOYMENT_CHECKLIST.md`: متطلبات الإطلاق العام.
+- mobile: تطبيق Android Flutter.
+- backend: API Node.js + PostgreSQL + Socket.IO.
+- admin: لوحة تحكم Web.
 
-## مهم
-لا توجد خدمة سحابية أو مفاتيح دفع/صوت/FCM داخل الملف لأن هذه مفاتيح سرية يجب أن تكون مملوكة لك. بعد ربط الخدمات السحابية وتشغيل المتغيرات البيئية يصبح المشروع قابلًا للنشر.
-
-### البناء
-أسهل طريقة لبناء APK هي GitHub Actions الموجود داخل المشروع.
+## ملاحظة
+مفاتيح الخدمات الخارجية مثل Agora وFCM والدفع لا توضع داخل المستودع. يمكن إضافتها لاحقًا عبر متغيرات البيئة.
