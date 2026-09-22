@@ -703,16 +703,32 @@ class _RoomPageState extends State<RoomPage> {
                       ),
                       const SizedBox(height: 8),
                       Expanded(
-                        child: ListView(
-                          children: messages
-                              .map(
-                                (m) => Padding(
+                        child: widget.roomId == null
+                            ? ListView(
+                                children: messages.map((m) => Padding(
                                   padding: const EdgeInsets.symmetric(vertical: 4),
                                   child: Text(m),
-                                ),
+                                )).toList(),
                               )
-                              .toList(),
-                        ),
+                            : StreamBuilder<List<Map<String, dynamic>>>(
+                                stream: TajBackend.roomMessages(widget.roomId!),
+                                builder: (context, snapshot) {
+                                  if (snapshot.hasError) {
+                                    return const Center(child: Text('تعذر تحميل المحادثة'));
+                                  }
+                                  final rows = snapshot.data ?? const <Map<String, dynamic>>[];
+                                  if (rows.isEmpty) {
+                                    return const Center(child: Text('ابدأ أول محادثة في الغرفة', style: TextStyle(color: Colors.white54)));
+                                  }
+                                  return ListView.builder(
+                                    itemCount: rows.length,
+                                    itemBuilder: (_, i) => Padding(
+                                      padding: const EdgeInsets.symmetric(vertical: 4),
+                                      child: Text(rows[i]['body']?.toString() ?? ''),
+                                    ),
+                                  );
+                                },
+                              ),
                       ),
                       Row(
                         children: [
