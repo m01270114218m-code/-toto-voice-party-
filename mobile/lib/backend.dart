@@ -229,6 +229,34 @@ class TajBackend {
     await client.from('rooms').update({'seat_count': seatCount}).eq('id', roomId);
   }
 
+  static Future<void> setRoomLocked(String roomId, bool locked) async {
+    await client.from('rooms').update({'is_locked': locked}).eq('id', roomId);
+  }
+
+  static Future<void> updateRoom(String roomId, Map<String, dynamic> data) async {
+    if (data.isNotEmpty) await client.from('rooms').update(data).eq('id', roomId);
+  }
+
+  static Future<List<Map<String, dynamic>>> searchProfiles(String query) async {
+    final q = query.trim();
+    if (q.isEmpty) return [];
+    final result = await client.from('profiles')
+        .select('id,display_name,username,public_id,avatar_url,country,level,vip_level')
+        .or('display_name.ilike.%$q%,username.ilike.%$q%,public_id.ilike.%$q%')
+        .limit(30);
+    return List<Map<String, dynamic>>.from(result);
+  }
+
+  static Future<List<Map<String, dynamic>>> vipLevels() async {
+    final result = await client.from('vip_levels').select().order('level');
+    return List<Map<String, dynamic>>.from(result);
+  }
+
+  static Future<List<Map<String, dynamic>>> levelRewards() async {
+    final result = await client.from('level_rewards').select().order('level');
+    return List<Map<String, dynamic>>.from(result);
+  }
+
   static Future<List<Map<String, dynamic>>> gifts() async {
     final result = await client
         .from('gifts')
