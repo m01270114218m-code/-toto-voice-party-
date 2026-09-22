@@ -75,8 +75,18 @@ class ToyoApi {
     request('POST','/api/rooms/$roomId/messages',body:{'text':text});
 
   static Future<List<dynamic>> messages(String roomId) async {
-    final data=await request('GET','/api/rooms/$roomId/messages');
-    return data is List ? data : [];
+    final t = await token();
+    final headers = <String,String>{
+      'Accept':'application/json',
+      if (t != null) 'Authorization':'Bearer $t',
+    };
+    final response = await http.get(Uri.parse('$baseUrl/api/rooms/$roomId/messages'), headers: headers);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw ToyoApiException('MESSAGES_FAILED', response.statusCode);
+    }
+    if (response.body.isEmpty) return <dynamic>[];
+    final decoded = jsonDecode(response.body);
+    return decoded is List ? decoded : <dynamic>[];
   }
 }
 
