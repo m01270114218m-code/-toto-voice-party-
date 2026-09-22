@@ -74,6 +74,16 @@ class ToyoApi {
   static Future<Map<String,dynamic>> sendMessage(String roomId,String text)=>
     request('POST','/api/rooms/$roomId/messages',body:{'text':text});
 
+  static Future<List<Map<String,dynamic>>> gifts() async {
+    final response = await http.get(Uri.parse('$baseUrl/api/gifts'));
+    if (response.statusCode < 200 || response.statusCode >= 300) throw ToyoApiException('GIFTS_FAILED', response.statusCode);
+    final decoded = jsonDecode(response.body);
+    return decoded is List ? decoded.map((e)=>Map<String,dynamic>.from(e as Map)).toList() : <Map<String,dynamic>>[];
+  }
+
+  static Future<Map<String,dynamic>> sendGift({required String roomId, required String giftId, String? receiverId, int quantity=1}) =>
+    request('POST','/api/gifts/send',body:{'roomId':roomId,'giftId':giftId,'receiverId':receiverId,'quantity':quantity,'idempotencyKey':'${DateTime.now().microsecondsSinceEpoch}'});
+
   static Future<List<dynamic>> messages(String roomId) async {
     final t = await token();
     final headers = <String,String>{
