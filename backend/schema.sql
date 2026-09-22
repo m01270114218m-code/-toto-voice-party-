@@ -8,6 +8,21 @@ create table if not exists room_moderators(room_id uuid references rooms(id) on 
 create table if not exists room_bans(room_id uuid references rooms(id) on delete cascade,user_id uuid references users(id) on delete cascade,reason text,expires_at timestamptz,created_at timestamptz default now(),primary key(room_id,user_id));
 create table if not exists room_messages(id uuid primary key default gen_random_uuid(),room_id uuid references rooms(id) on delete cascade,user_id uuid references users(id),text text not null,created_at timestamptz default now());
 create index if not exists room_messages_room_created on room_messages(room_id,created_at desc);
+-- Keep existing installations compatible with the supported 1/8/10/15 seat range.
+do $
+begin
+  alter table rooms drop constraint if exists rooms_max_seats_check;
+  alter table rooms add constraint rooms_max_seats_check check(max_seats between 1 and 15);
+exception when duplicate_object then null;
+end $;
+
+do $
+begin
+  alter table room_seats drop constraint if exists room_seats_seat_no_check;
+  alter table room_seats add constraint room_seats_seat_no_check check(seat_no between 1 and 15);
+exception when duplicate_object then null;
+end $;
+
 create table if not exists wallet_ledger(id uuid primary key default gen_random_uuid(),user_id uuid not null references users(id),currency text not null check(currency in ('coins','diamonds')),amount bigint not null,type text not null,reference_id text unique not null,metadata jsonb,created_at timestamptz default now());
 create table if not exists gifts(id uuid primary key default gen_random_uuid(),name text not null,price bigint not null,currency text not null default 'coins',asset_url text,animation_url text,sound_url text,duration_ms int default 2500,required_level int default 1,active boolean default true);
 insert into gifts(name,price,currency) select 'وردة',10,'coins' where not exists(select 1 from gifts where name='وردة');
