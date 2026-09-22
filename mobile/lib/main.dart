@@ -61,7 +61,7 @@ class _HomeState extends State<Home>{
   int tab=0;
   final rooms=['مجلس العرب','جلسة طرب','أصدقاء الليل','سهرة الخليج','VIP Lounge','غرفة الألعاب'];
   @override Widget build(BuildContext c){
-    final pages=[homeBody(),const Messages(),const Wallet(),const Profile()];
+    final pages=[homeBody(c),const Messages(),const Wallet(),const Profile()];
     return Scaffold(body:pages[tab],bottomNavigationBar:NavigationBar(selectedIndex:tab,onDestinationSelected:(v)=>setState(()=>tab=v),destinations:const[
       NavigationDestination(icon:Icon(Icons.home_outlined),selectedIcon:Icon(Icons.home),label:'الرئيسية'),
       NavigationDestination(icon:Icon(Icons.chat_bubble_outline),selectedIcon:Icon(Icons.chat),label:'الرسائل'),
@@ -69,7 +69,7 @@ class _HomeState extends State<Home>{
       NavigationDestination(icon:Icon(Icons.person_outline),selectedIcon:Icon(Icons.person),label:'حسابي'),
     ]));
   }
-  Widget homeBody()=>SafeArea(child:CustomScrollView(slivers:[
+  Widget homeBody(BuildContext c)=>SafeArea(child:CustomScrollView(slivers:[
     SliverToBoxAdapter(child:Padding(padding:const EdgeInsets.all(16),child:Row(children:[
       const CircleAvatar(backgroundImage:NetworkImage('https://i.pravatar.cc/100?img=12')),
       const SizedBox(width:10),const Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text('مرحباً 👋'),Text('أمير القلوب',style:TextStyle(fontSize:18,fontWeight:FontWeight.bold))])),
@@ -78,9 +78,9 @@ class _HomeState extends State<Home>{
     SliverToBoxAdapter(child:Padding(padding:const EdgeInsets.symmetric(horizontal:16),child:FilledButton.icon(onPressed:(){Navigator.push(c,MaterialPageRoute(builder:(_)=>const CreateRoom()));},icon:const Icon(Icons.add),label:const Text('إنشاء غرفة')))),
     SliverToBoxAdapter(child:SingleChildScrollView(scrollDirection:Axis.horizontal,padding:const EdgeInsets.all(16),child:Row(children:['الرائجة','أتابعها','حفلات','ألعاب','موسيقى','VIP','قبائل','وكالات'].map((x)=>Padding(padding:const EdgeInsets.only(left:8),child:Chip(label:Text(x)))).toList()))),
     SliverToBoxAdapter(child:const Padding(padding:EdgeInsets.fromLTRB(16,4,16,10),child:Text('الغرف المباشرة',style:TextStyle(fontSize:22,fontWeight:FontWeight.bold)))),
-    SliverList(delegate:SliverChildBuilderDelegate((_,i)=>roomCard(rooms[i],i),childCount:rooms.length)),
+    SliverList(delegate:SliverChildBuilderDelegate((_,i)=>roomCard(c,rooms[i],i),childCount:rooms.length)),
   ]));
-  Widget roomCard(String name,int i)=>Padding(padding:const EdgeInsets.fromLTRB(16,0,16,10),child:InkWell(
+  Widget roomCard(BuildContext c,String name,int i)=>Padding(padding:const EdgeInsets.fromLTRB(16,0,16,10),child:InkWell(
     onTap:()=>Navigator.push(c,MaterialPageRoute(builder:(_)=>Room(name:name))),
     child:Container(padding:const EdgeInsets.all(12),decoration:BoxDecoration(borderRadius:BorderRadius.circular(20),gradient:const LinearGradient(colors:[Color(0xFF17102C),Color(0xFF251044)]),border:Border.all(color:purple.withOpacity(.35))),child:Row(children:[
       ClipRRect(borderRadius:BorderRadius.circular(14),child:Image.network('https://picsum.photos/seed/$i/100',width:75,height:75,fit:BoxFit.cover)),
