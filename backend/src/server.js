@@ -116,6 +116,8 @@ app.post('/api/rooms/:id/leave',auth,async(req,res)=>{
 });
 app.get('/api/rooms/:id/messages',auth,async(req,res)=>{ const r=await q(`select m.*,p.display_name,p.avatar_url from room_messages m join profiles p on p.user_id=m.user_id where m.room_id=$1 order by m.created_at desc limit 100`,[req.params.id]); res.json(r.rows.reverse()); });
 app.post('/api/rooms/:id/messages',auth,async(req,res)=>{ const text=String(req.body?.text||'').trim(); if(!text||text.length>500) return res.status(400).json({error:'INVALID_MESSAGE'}); const r=await q(`insert into room_messages(room_id,user_id,text) values($1,$2,$3) returning *`,[req.params.id,req.user.sub,text]); const msg=r.rows[0]; io.to(`room:${req.params.id}`).emit('room:message',msg); res.status(201).json(msg); });
+app.get('/api/gifts',async(_req,res)=>{ const r=await q(`select id,name,price,currency,asset_url,animation_url,sound_url,duration_ms,required_level from gifts where active=true order by price asc`); res.json(r.rows); });
+
 app.get('/api/wallet',auth,async(req,res)=>{ const r=await q(`select currency,coalesce(sum(amount),0)::bigint balance from wallet_ledger where user_id=$1 group by currency`,[req.user.sub]); res.json(r.rows); });
 app.post('/api/gifts/send',auth,async(req,res)=>{
   const {roomId,receiverId,giftId,quantity=1,idempotencyKey=crypto.randomUUID()}=req.body||{};
