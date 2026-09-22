@@ -1232,7 +1232,15 @@ class _SearchPageState extends State<SearchPage> {
     body: Column(children:[
       Padding(padding: const EdgeInsets.all(14), child: TextField(controller:c, textInputAction:TextInputAction.search, onSubmitted:(_)=>go(), decoration:InputDecoration(hintText:'اسم أو username أو ID', suffixIcon:IconButton(onPressed:go,icon:const Icon(Icons.search))))),
       if(loading) const LinearProgressIndicator(color:gold),
-      Expanded(child:ListView.builder(itemCount:rows.length,itemBuilder:(_,i){final r=rows[i];return ListTile(leading:const CircleAvatar(child:Icon(Icons.person)),title:Text(r['display_name']?.toString()??'مستخدم'),subtitle:Text('@'+(r['username']?.toString()??'')+' • ID '+(r['public_id']?.toString()??'')));})),
+      Expanded(child:ListView.builder(itemCount:rows.length,itemBuilder:(_,i){final r=rows[i];return ListTile(
+  leading: const CircleAvatar(child: Icon(Icons.person)),
+  title: Text(r['display_name']?.toString()??'مستخدم'),
+  subtitle: Text('@'+(r['username']?.toString()??'')+' • ID '+(r['public_id']?.toString()??'')),
+  trailing: Row(mainAxisSize:MainAxisSize.min,children:[
+    IconButton(icon:const Icon(Icons.person_add,color:gold),onPressed:() async {try{await TajBackend.followUser(r['id'].toString());if(mounted)ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('تمت المتابعة')));}catch(e){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('تعذر المتابعة: $e')));}}),
+    IconButton(icon:const Icon(Icons.chat_bubble_outline,color:royal2),onPressed:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>PrivateChatPage(userId:r['id'].toString(),title:r['display_name']?.toString()??'مستخدم')))),
+  ]),
+);})),
     ])
   );
 }
