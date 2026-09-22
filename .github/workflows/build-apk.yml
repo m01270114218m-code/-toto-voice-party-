@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build TOYO Android APK
 on:
   workflow_dispatch:
   push:
@@ -26,5 +26,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: VoiceRoom-Pro-release-apk
+          name: TOYO-Voice-Party-release-apk
           path: mobile/build/app/outputs/flutter-apk/app-release.apk
