@@ -51,7 +51,9 @@ class _HomeShellState extends State<HomeShell> {
   final pages = const [
     HomePage(),
     MessagesPage(),
-    WalletPage(),
+    MomentsPage(),
+    MessagesPage(),
+    CreatePage(),
     ProfilePage(),
   ];
 
@@ -67,26 +69,11 @@ class _HomeShellState extends State<HomeShell> {
           selectedIndex: tab,
           onDestinationSelected: (v) => setState(() => tab = v),
           destinations: const [
-            NavigationDestination(
-              icon: Icon(Icons.home_outlined),
-              selectedIcon: Icon(Icons.home, color: gold),
-              label: 'الرئيسية',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.chat_bubble_outline),
-              selectedIcon: Icon(Icons.chat, color: gold),
-              label: 'الرسائل',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.account_balance_wallet_outlined),
-              selectedIcon: Icon(Icons.account_balance_wallet, color: gold),
-              label: 'المحفظة',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.person_outline),
-              selectedIcon: Icon(Icons.person, color: gold),
-              label: 'حسابي',
-            ),
+            NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home, color: gold), label: 'الرئيسية'),
+            NavigationDestination(icon: Icon(Icons.auto_awesome_outlined), selectedIcon: Icon(Icons.auto_awesome, color: gold), label: 'اللحظات'),
+            NavigationDestination(icon: Icon(Icons.chat_bubble_outline), selectedIcon: Icon(Icons.chat, color: gold), label: 'الرسائل'),
+            NavigationDestination(icon: Icon(Icons.add_circle_outline), selectedIcon: Icon(Icons.add_circle, color: gold), label: 'إنشاء'),
+            NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person, color: gold), label: 'أنا'),
           ],
         ),
       ),
@@ -677,6 +664,79 @@ class GiftSheet extends StatelessWidget {
       ),
     );
   }
+}
+
+class MomentsPage extends StatelessWidget {
+  const MomentsPage({super.key});
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('اللحظات')),
+    body: ListView(
+      padding: const EdgeInsets.all(16),
+      children: const [
+        _MomentCard(name: 'سارة', text: 'ليلة جميلة في تاج لايف ✨', likes: 128),
+        _MomentCard(name: 'محمد', text: 'من الغرفة الملكية اليوم ❤️', likes: 84),
+        _MomentCard(name: 'نور', text: 'أهلاً بكل أصدقاء تاج لايف', likes: 61),
+      ],
+    ),
+  );
+}
+class _MomentCard extends StatelessWidget {
+  const _MomentCard({required this.name, required this.text, required this.likes});
+  final String name, text; final int likes;
+  @override
+  Widget build(BuildContext context) => Card(
+    color: surface,
+    margin: const EdgeInsets.only(bottom: 12),
+    child: Padding(padding: const EdgeInsets.all(15), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [const CircleAvatar(backgroundColor: royal, child: Icon(Icons.person)), const SizedBox(width: 9), Text(name, style: const TextStyle(fontWeight: FontWeight.bold)), const Spacer(), const Text('منذ قليل', style: TextStyle(color: Colors.white38))]),
+      const SizedBox(height: 12), Text(text, style: const TextStyle(fontSize: 16)), const SizedBox(height: 12),
+      Row(children: [const Icon(Icons.favorite_border, color: gold, size: 19), const SizedBox(width: 5), Text('$likes'), const SizedBox(width: 20), const Icon(Icons.chat_bubble_outline, size: 19), const SizedBox(width: 5), const Text('تعليق')]),
+    ])),
+  );
+}
+
+class CreatePage extends StatelessWidget {
+  const CreatePage({super.key});
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('إنشاء')),
+    body: ListView(padding: const EdgeInsets.all(16), children: [
+      ListTile(leading: const Icon(Icons.mic, color: gold), title: const Text('إنشاء غرفة صوتية'), subtitle: const Text('8 أو 10 أو 15 مقعداً'), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CreateRoomPage()))),
+      ListTile(leading: const Icon(Icons.auto_awesome, color: royal2), title: const Text('نشر لحظة'), subtitle: const Text('شارك مع مجتمع تاج لايف'), onTap: () {}),
+      ListTile(leading: const Icon(Icons.card_giftcard, color: gold), title: const Text('الهدايا'), subtitle: const Text('استعراض الهدايا'), onTap: () => showModalBottomSheet(context: context, backgroundColor: surface, builder: (_) => const GiftSheet())),
+    ]),
+  );
+}
+
+class CreateRoomPage extends StatefulWidget {
+  const CreateRoomPage({super.key});
+  @override State<CreateRoomPage> createState() => _CreateRoomPageState();
+}
+class _CreateRoomPageState extends State<CreateRoomPage> {
+  final name = TextEditingController(text: 'غرفتي الملكية');
+  int seats = 8;
+  @override void dispose() { name.dispose(); super.dispose(); }
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('إنشاء غرفة')),
+    body: ListView(padding: const EdgeInsets.all(18), children: [
+      TextField(controller: name, decoration: const InputDecoration(labelText: 'اسم الغرفة', border: OutlineInputBorder())),
+      const SizedBox(height: 18),
+      const Text('عدد المقاعد', style: TextStyle(fontWeight: FontWeight.bold)),
+      const SizedBox(height: 8),
+      SegmentedButton<int>(
+        segments: const [ButtonSegment(value: 8, label: Text('8')), ButtonSegment(value: 10, label: Text('10')), ButtonSegment(value: 15, label: Text('15'))],
+        selected: {seats},
+        onSelectionChanged: (v) => setState(() => seats = v.first),
+      ),
+      const SizedBox(height: 20),
+      FilledButton(
+        onPressed: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => RoomPage(name: name.text.trim().isEmpty ? 'غرفتي الملكية' : name.text.trim()))),
+        child: const Text('إنشاء ودخول'),
+      ),
+    ]),
+  );
 }
 
 class MessagesPage extends StatelessWidget {
