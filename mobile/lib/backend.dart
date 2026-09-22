@@ -274,8 +274,11 @@ class TajBackend {
     if (id == null) return const Stream.empty();
     return client.from('messages')
       .stream(primaryKey: ['id'])
-      
-      .order('created_at');
+      .order('created_at')
+      .map((rows) => rows.where((row) =>
+        (row['sender_id'] == id && row['recipient_id'] == otherUserId) ||
+        (row['sender_id'] == otherUserId && row['recipient_id'] == id)
+      ).toList());
   }
 
   static Future<List<Map<String, dynamic>>> conversations() async {
