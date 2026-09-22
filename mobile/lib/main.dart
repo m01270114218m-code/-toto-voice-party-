@@ -215,7 +215,7 @@ class _RoomState extends State<Room>{
     body:Stack(children:[
       Positioned.fill(child:Container(decoration:const BoxDecoration(gradient:LinearGradient(begin:Alignment.topCenter,end:Alignment.bottomCenter,colors:[Color(0xFF321052),Color(0xFF090414)])),child:CustomPaint(painter:StarPainter()))),
       SafeArea(child:Column(children:[
-        Padding(padding:const EdgeInsets.symmetric(horizontal:12,vertical:8),child:Row(children:[IconButton(onPressed:()=>Navigator.pop(c),icon:const Icon(Icons.arrow_back)),Expanded(child:Text(widget.name,style:const TextStyle(fontSize:20,fontWeight:FontWeight.bold))),const Icon(Icons.share),const SizedBox(width:8),const CircleAvatar(backgroundImage:NetworkImage('https://i.pravatar.cc/70?img=12'))])),
+        Padding(padding:const EdgeInsets.symmetric(horizontal:12,vertical:8),child:Row(children:[IconButton(onPressed:()=>Navigator.pop(c),icon:const Icon(Icons.arrow_back)),Expanded(child:Text(widget.name,style:const TextStyle(fontSize:20,fontWeight:FontWeight.bold))),const Icon(Icons.share),const SizedBox(width:8),const CircleAvatar(child:Icon(Icons.person,color:gold2))])),
         const SizedBox(height:10),
         Padding(padding:const EdgeInsets.symmetric(horizontal:16),child:Row(children:[const Icon(Icons.circle,size:9,color:Colors.greenAccent),const SizedBox(width:6),Expanded(child:Text(rtcStatus,style:const TextStyle(color:Colors.white70)))])),
         const SizedBox(height:10),
