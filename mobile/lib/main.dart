@@ -276,24 +276,14 @@ class Moments extends StatelessWidget {
     textDirection:TextDirection.rtl,
     child:Scaffold(
       appBar:AppBar(title:const Text('اللحظات')),
-      body:ListView(
-        padding:const EdgeInsets.all(14),
-        children:[
-          _moment('أمير القلوب','ليلة جميلة في TOYO ✨','https://picsum.photos/seed/toyo1/900/520'),
-          _moment('سارة','من داخل غرفة النخبة 💜','https://picsum.photos/seed/toyo2/900/520'),
-          _moment('محمد','أجمل أصدقاء TOYO ❤️','https://picsum.photos/seed/toyo3/900/520'),
-        ],
-      ),
+      body:Center(child:Padding(padding:const EdgeInsets.all(24),child:Column(mainAxisSize:MainAxisSize.min,children:[
+        const Icon(Icons.auto_awesome,color:gold,size:60),
+        const SizedBox(height:16),
+        const Text('لا توجد لحظات منشورة بعد',style:TextStyle(fontSize:20,fontWeight:FontWeight.w900,color:gold2)),
+        const SizedBox(height:8),
+        const Text('سيظهر المحتوى الحقيقي هنا بعد نشره من المستخدمين.',textAlign:TextAlign.center,style:TextStyle(color:Colors.white60)),
+      ])),
     ),
-  );
-  Widget _moment(String name,String text,String image)=>Card(
-    clipBehavior:Clip.antiAlias,
-    child:Column(crossAxisAlignment:CrossAxisAlignment.stretch,children:[
-      ListTile(leading:const CircleAvatar(child:Icon(Icons.person)),title:Text(name),subtitle:const Text('منذ قليل')),
-      Image.network(image,height:190,fit:BoxFit.cover),
-      Padding(padding:const EdgeInsets.all(12),child:Text(text,style:const TextStyle(fontSize:16,fontWeight:FontWeight.bold))),
-      const ButtonBar(children:[Icon(Icons.favorite_border),Icon(Icons.chat_bubble_outline),Icon(Icons.share_outlined)])
-    ]),
   );
 }
 
