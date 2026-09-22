@@ -7,6 +7,7 @@ import pg from 'pg';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import crypto from 'crypto';
+import { RtcTokenBuilder, RtcRole } from 'agora-token';
 
 const { Pool } = pg;
 const app = express();
@@ -46,6 +47,22 @@ app.post('/api/auth/login', async (req,res)=>{
 });
 
 app.get('/api/me',auth,async(req,res)=>{ const r=await q(`select u.id,u.email,u.role,u.status,p.* from users u left join profiles p on p.user_id=u.id where u.id=$1`,[req.user.sub]); res.json(r.rows[0]||null); });
+app.post('/api/rtc/token',auth,async(req,res)=>{
+  try {
+    const {roomId,role='audience'}=req.body||{};
+    if(!roomId) return res.status(400).json({error:'ROOM_REQUIRED'});
+    if(!process.env.AGORA_APP_ID || !process.env.AGORA_APP_CERTIFICATE) return res.status(503).json({error:'RTC_NOT_CONFIGURED'});
+    const room=(await q('select id,name from rooms where id=$1 and status=\'live\'',[roomId])).rows[0];
+    if(!room) return res.status(404).json({error:'ROOM_NOT_FOUND'});
+    const account=String(req.user.sub);
+    const ttl=Math.max(300,Number(process.env.AGORA_TOKEN_TTL_SECONDS||3600));
+    const expire=Math.floor(Date.now()/1000)+ttl;
+    const rtcRole=role==='publisher'?RtcRole.PUBLISHER:RtcRole.SUBSCRIBER;
+    const token=RtcTokenBuilder.buildTokenWithAccount(process.env.AGORA_APP_ID,process.env.AGORA_APP_CERTIFICATE,`room_${roomId}`,account,rtcRole,expire);
+    res.json({appId:process.env.AGORA_APP_ID,channelName:`room_${roomId}`,uid:account,token,role:rtcRole===RtcRole.PUBLISHER?'publisher':'audience',expiresAt:expire});
+  } catch(e) { res.status(500).json({error:'RTC_TOKEN_FAILED'}); }
+});
+
 app.get('/api/rooms',async(req,res)=>{ const r=await q(`select r.*,p.display_name as owner_name from rooms r left join profiles p on p.user_id=r.owner_id where r.status='live' order by r.viewer_count desc, r.created_at desc limit 100`); res.json(r.rows); });
 app.post('/api/rooms',auth,async(req,res)=>{ const {name,description='',category='general',country='EG',maxSeats=10}=req.body||{}; if(!name) return res.status(400).json({error:'NAME_REQUIRED'}); const r=await q(`insert into rooms(owner_id,name,description,category,country,max_seats,status) values($1,$2,$3,$4,$5,$6,'live') returning *`,[req.user.sub,name,description,category,country,Math.min(Math.max(Number(maxSeats)||10,1),15)]); res.status(201).json(r.rows[0]); });
 app.post('/api/rooms/:id/join',auth,async(req,res)=>{ const r=await q(`insert into room_members(room_id,user_id) values($1,$2) on conflict do nothing returning *`,[req.params.id,req.user.sub]); await q(`update rooms set viewer_count=viewer_count+1 where id=$1`,[req.params.id]); res.json({joined:true,member:r.rows[0]||null}); });
