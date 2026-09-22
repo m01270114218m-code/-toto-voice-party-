@@ -241,19 +241,47 @@ class TajBackend {
     final id = user?.id;
     if (id == null) throw StateError('not_authenticated');
     if (id == targetId) return;
-    await client.from('user_follows').upsert({'follower_id': id, 'following_id': targetId});
+    await client.from('follows').upsert({'follower_id': id, 'following_id': targetId});
   }
 
   static Future<void> unfollowUser(String targetId) async {
     final id = user?.id;
     if (id == null) throw StateError('not_authenticated');
-    await client.from('user_follows').delete().eq('follower_id', id).eq('following_id', targetId);
+    await client.from('follows').delete().eq('follower_id', id).eq('following_id', targetId);
   }
 
   static Future<List<Map<String, dynamic>>> following() async {
     final id = user?.id;
     if (id == null) return [];
-    final result = await client.from('user_follows').select('following_id, profiles:following_id(display_name,username,public_id,avatar_url)').eq('follower_id', id);
+    final result = await client.from('follows').select('following_id, profiles:following_id(display_name,username,public_id,avatar_url)').eq('follower_id', id);
+    return List<Map<String, dynamic>>.from(result);
+  }
+
+  static Future<void> sendPrivateMessage(String recipientId, String body) async {
+    final id = user?.id;
+    final text = body.trim();
+    if (id == null) throw StateError('not_authenticated');
+    if (recipientId == id || text.isEmpty) return;
+    await client.from('messages').insert({'sender_id': id, 'recipient_id': recipientId, 'body': text});
+  }
+
+  static Stream<List<Map<String, dynamic>>> privateMessages(String otherUserId) {
+    final id = user?.id;
+    if (id == null) return const Stream.empty();
+    return client.from('messages')
+      .stream(primaryKey: ['id'])
+      .or('and(sender_id.eq.$id,recipient_id.eq.$otherUserId),and(sender_id.eq.$otherUserId,recipient_id.eq.$id)')
+      .order('created_at');
+  }
+
+  static Future<List<Map<String, dynamic>>> conversations() async {
+    final id = user?.id;
+    if (id == null) return [];
+    final result = await client.from('messages')
+      .select('id,sender_id,recipient_id,body,created_at')
+      .or('sender_id.eq.$id,recipient_id.eq.$id')
+      .order('created_at', ascending: false)
+      .limit(100);
     return List<Map<String, dynamic>>.from(result);
   }
 
