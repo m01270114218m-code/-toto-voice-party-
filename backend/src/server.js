@@ -64,7 +64,42 @@ app.post('/api/rtc/token',auth,async(req,res)=>{
 });
 
 app.get('/api/rooms',async(req,res)=>{ const r=await q(`select r.*,p.display_name as owner_name from rooms r left join profiles p on p.user_id=r.owner_id where r.status='live' order by r.viewer_count desc, r.created_at desc limit 100`); res.json(r.rows); });
-app.post('/api/rooms',auth,async(req,res)=>{ const {name,description='',category='general',country='EG',maxSeats=8}=req.body||{}; if(!name) return res.status(400).json({error:'NAME_REQUIRED'}); const r=await q(`insert into rooms(owner_id,name,description,category,country,max_seats,status) values($1,$2,$3,$4,$5,$6,'live') returning *`,[req.user.sub,name,description,category,country,Math.min(Math.max(Number(maxSeats)||8,1),15)]); res.status(201).json(r.rows[0]); });
+app.post('/api/rooms',auth,async(req,res)=>{
+  const {name,description='',category='general',country='EG',maxSeats=8}=req.body||{};
+  if(!name) return res.status(400).json({error:'NAME_REQUIRED'});
+  const seats=Math.min(Math.max(Number(maxSeats)||8,1),15);
+  const client=await pool.connect();
+  try{
+    await client.query('begin');
+    const r=await client.query(`insert into rooms(owner_id,name,description,category,country,max_seats,status) values($1,$2,$3,$4,$5,$6,'live') returning *`,[req.user.sub,name,description,category,country,seats]);
+    for(let i=1;i<=seats;i++) await client.query(`insert into room_seats(room_id,seat_no) values($1,$2)`,[r.rows[0].id,i]);
+    await client.query('commit');
+    res.status(201).json(r.rows[0]);
+  }catch(e){await client.query('rollback');res.status(400).json({error:'ROOM_CREATE_FAILED'});}finally{client.release();}
+});
+app.get('/api/rooms/:id/state',auth,async(req,res)=>{
+  const room=(await q(`select r.*,p.display_name owner_name from rooms r left join profiles p on p.user_id=r.owner_id where r.id=$1`,[req.params.id])).rows[0];
+  if(!room) return res.status(404).json({error:'ROOM_NOT_FOUND'});
+  const seats=(await q(`select rs.*,p.display_name,p.avatar_url from room_seats rs left join profiles p on p.user_id=rs.user_id where rs.room_id=$1 order by rs.seat_no`,[req.params.id])).rows;
+  const moderators=(await q(`select rm.user_id,p.display_name,rm.permissions from room_moderators rm join profiles p on p.user_id=rm.user_id where rm.room_id=$1`,[req.params.id])).rows;
+  res.json({room,seats,moderators});
+});
+app.post('/api/rooms/:id/seats/:seatNo/request',auth,async(req,res)=>{
+  const seatNo=Number(req.params.seatNo);
+  const room=(await q(`select owner_id,max_seats,status from rooms where id=$1`,[req.params.id])).rows[0];
+  if(!room||room.status!=='live'||seatNo<1||seatNo>room.max_seats) return res.status(404).json({error:'SEAT_NOT_FOUND'});
+  const seat=(await q(`select * from room_seats where room_id=$1 and seat_no=$2`,[req.params.id,seatNo])).rows[0];
+  if(seat.locked||seat.user_id) return res.status(409).json({error:'SEAT_UNAVAILABLE'});
+  await q(`update room_seats set user_id=$1,updated_at=now() where room_id=$2 and seat_no=$3`,[req.user.sub,req.params.id,seatNo]);
+  io.to(`room:${req.params.id}`).emit('room:seat', {roomId:req.params.id,seatNo,userId:req.user.sub});
+  res.json({ok:true,seatNo});
+});
+app.post('/api/rooms/:id/seats/:seatNo/leave',auth,async(req,res)=>{
+  const seatNo=Number(req.params.seatNo);
+  await q(`update room_seats set user_id=null,updated_at=now() where room_id=$1 and seat_no=$2 and user_id=$3`,[req.params.id,seatNo,req.user.sub]);
+  io.to(`room:${req.params.id}`).emit('room:seat', {roomId:req.params.id,seatNo,userId:null});
+  res.json({ok:true});
+});
 app.post('/api/rooms/:id/join',auth,async(req,res)=>{ const r=await q(`insert into room_members(room_id,user_id) values($1,$2) on conflict do nothing returning *`,[req.params.id,req.user.sub]); await q(`update rooms set viewer_count=viewer_count+1 where id=$1`,[req.params.id]); res.json({joined:true,member:r.rows[0]||null}); });
 app.post('/api/rooms/:id/leave',auth,async(req,res)=>{ await q(`delete from room_members where room_id=$1 and user_id=$2`,[req.params.id,req.user.sub]); await q(`update rooms set viewer_count=greatest(viewer_count-1,0) where id=$1`,[req.params.id]); res.json({left:true}); });
 app.get('/api/rooms/:id/messages',auth,async(req,res)=>{ const r=await q(`select m.*,p.display_name,p.avatar_url from room_messages m join profiles p on p.user_id=m.user_id where m.room_id=$1 order by m.created_at desc limit 100`,[req.params.id]); res.json(r.rows.reverse()); });
