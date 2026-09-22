@@ -301,6 +301,10 @@ class _HomePageState extends State<HomePage> {
                   ),
                   _coinPill(),
                   IconButton(
+                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SearchPage())),
+                    icon: const Icon(Icons.search),
+                  ),
+                  IconButton(
                     onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsPage())),
                     icon: const Icon(Icons.notifications_none),
                   ),
@@ -1403,7 +1407,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const WalletPage()))),
               const ListTile(leading: Icon(Icons.emoji_events, color: gold), title: Text('الإنجازات')),
               const ListTile(leading: Icon(Icons.card_giftcard, color: royal2), title: Text('الهدايا والشارات')),
-              const ListTile(leading: Icon(Icons.workspace_premium, color: gold), title: Text('VIP والمستوى')),
+              ListTile(leading: const Icon(Icons.workspace_premium, color: gold), title: const Text('VIP والمستوى'), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const VipPage()))),
               const ListTile(leading: Icon(Icons.shield_outlined), title: Text('الحساب والأمان')),
               const ListTile(leading: Icon(Icons.settings), title: Text('الإعدادات')),
               ListTile(leading: const Icon(Icons.logout, color: Colors.redAccent), title: const Text('تسجيل الخروج'),
