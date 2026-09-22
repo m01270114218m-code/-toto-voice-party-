@@ -344,7 +344,8 @@ class _RoomCard extends StatelessWidget {
 
 class RoomPage extends StatefulWidget {
   final String name;
-  const RoomPage({super.key, required this.name});
+  final int seatCount;
+  const RoomPage({super.key, required this.name, this.seatCount = 8});
 
   @override
   State<RoomPage> createState() => _RoomPageState();
@@ -732,7 +733,7 @@ class _CreateRoomPageState extends State<CreateRoomPage> {
       ),
       const SizedBox(height: 20),
       FilledButton(
-        onPressed: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => RoomPage(name: name.text.trim().isEmpty ? 'غرفتي الملكية' : name.text.trim()))),
+        onPressed: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => RoomPage(name: name.text.trim().isEmpty ? 'غرفتي الملكية' : name.text.trim(), seatCount: seats))),
         child: const Text('إنشاء ودخول'),
       ),
     ]),
