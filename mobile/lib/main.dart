@@ -240,14 +240,35 @@ class _RoomState extends State<Room>{
 
 class GiftSheet extends StatelessWidget{ GiftSheet({super.key}); final gifts=const [('وردة',10,'🌹'),('قلب',20,'❤️'),('سيارة',100,'🚗'),('طائرة',200,'✈️'),('قصر',1000,'🏰'),('تنين',5000,'🐉')]; @override Widget build(BuildContext c)=>Padding(padding:const EdgeInsets.all(18),child:Column(mainAxisSize:MainAxisSize.min,children:[const Text('الهدايا المتحركة',style:TextStyle(fontSize:22,fontWeight:FontWeight.w900,color:gold)),const SizedBox(height:15),GridView.count(shrinkWrap:true,crossAxisCount:3,children:gifts.map((g)=>Card(child:InkWell(onTap:()=>Navigator.pop(c),child:Column(mainAxisAlignment:MainAxisAlignment.center,children:[Text(g.$3,style:const TextStyle(fontSize:35)),Text(g.$1),Text('${g.$2} 🪙',style:const TextStyle(color:gold))])))).toList())])); }
 
-class CreateRoom extends StatelessWidget{ const CreateRoom({super.key}); @override Widget build(BuildContext c)=>Scaffold(appBar:AppBar(title:const Text('إنشاء غرفة')),body:ListView(padding:const EdgeInsets.all(18),children:[
-  TextField(decoration:InputDecoration(labelText:'اسم الغرفة',border:OutlineInputBorder(borderRadius:BorderRadius.circular(15)))),
-  const SizedBox(height:12),TextField(maxLines:3,decoration:InputDecoration(labelText:'وصف مختصر',border:OutlineInputBorder(borderRadius:BorderRadius.circular(15)))),
-  const SizedBox(height:12),DropdownButtonFormField(items:['موسيقى','دردشة عامة','ألعاب','VIP','حفلات'].map((x)=>DropdownMenuItem(value:x,child:Text(x))).toList(),onChanged:(_){},decoration:const InputDecoration(labelText:'فئة الغرفة')),
-  SwitchListTile(value:true,onChanged:(_){},title:const Text('غرفة عامة')),SwitchListTile(value:true,onChanged:(_){},title:const Text('السماح بالهدايا')),SwitchListTile(value:true,onChanged:(_){},title:const Text('السماح بطلبات المقاعد')),
-  TextField(decoration:InputDecoration(labelText:'رسالة الترحيب',border:OutlineInputBorder(borderRadius:BorderRadius.circular(15)))),
-  const SizedBox(height:20),SizedBox(height:52,child:FilledButton(onPressed:()=>Navigator.pop(c),child:const Text('إنشاء الغرفة')))
-]));}
+class CreateRoom extends StatefulWidget{ const CreateRoom({super.key}); @override State<CreateRoom> createState()=>_CreateRoomState(); }
+class _CreateRoomState extends State<CreateRoom>{
+  final name=TextEditingController(); final desc=TextEditingController(); String category='general'; int seats=8; bool saving=false;
+  @override void dispose(){name.dispose();desc.dispose();super.dispose();}
+  Future<void> save() async {
+    if(name.text.trim().isEmpty)return;
+    setState(()=>saving=true);
+    try{
+      final room=await ToyoApi.createRoom(name:name.text.trim(),description:desc.text.trim(),category:category,maxSeats:seats);
+      if(!mounted)return;
+      Navigator.pop(context,room);
+    }catch(e){
+      if(mounted){setState(()=>saving=false);ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('تعذر إنشاء الغرفة: $e')));}
+    }
+  }
+  @override Widget build(BuildContext c)=>Directionality(textDirection:TextDirection.rtl,child:Scaffold(
+    appBar:AppBar(title:const Text('إنشاء غرفة صوتية')),
+    body:ListView(padding:const EdgeInsets.all(18),children:[
+      Container(padding:const EdgeInsets.all(20),decoration:BoxDecoration(borderRadius:BorderRadius.circular(24),gradient:const LinearGradient(colors:[Color(0xFF35145A),Color(0xFF100718)]),border:Border.all(color:gold.withOpacity(.35))),child:const Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text('غرفتك، قوانينك، جمهورك',style:TextStyle(fontSize:22,fontWeight:FontWeight.w900,color:gold2)),SizedBox(height:6),Text('أنشئ غرفة حقيقية وستظهر مباشرة للمستخدمين.',style:TextStyle(color:Colors.white60))])),
+      const SizedBox(height:18),TextField(controller:name,decoration:const InputDecoration(labelText:'اسم الغرفة',border:OutlineInputBorder())),
+      const SizedBox(height:12),TextField(controller:desc,maxLines:3,decoration:const InputDecoration(labelText:'الوصف',border:OutlineInputBorder())),
+      const SizedBox(height:12),DropdownButtonFormField<String>(value:category,items:const[
+        DropdownMenuItem(value:'general',child:Text('دردشة عامة')),DropdownMenuItem(value:'music',child:Text('موسيقى')),DropdownMenuItem(value:'games',child:Text('ألعاب')),DropdownMenuItem(value:'vip',child:Text('VIP')),DropdownMenuItem(value:'events',child:Text('حفلات'))
+      ],onChanged:(v)=>setState(()=>category=v??'general'),decoration:const InputDecoration(labelText:'الفئة',border:OutlineInputBorder())),
+      const SizedBox(height:12),DropdownButtonFormField<int>(value:seats,items:[8,10,15].map((x)=>DropdownMenuItem(value:x,child:Text('$x مايك'))).toList(),onChanged:(v)=>setState(()=>seats=v??8),decoration:const InputDecoration(labelText:'عدد المقاعد',border:OutlineInputBorder())),
+      const SizedBox(height:24),SizedBox(height:54,child:FilledButton.icon(onPressed:saving?null:save,icon:saving?const SizedBox(width:18,height:18,child:CircularProgressIndicator(strokeWidth:2)):const Icon(Icons.mic),label:Text(saving?'جاري الإنشاء...':'إنشاء الغرفة')))
+    ])
+  ));
+}
 
 class Moments extends StatelessWidget {
   const Moments({super.key});
