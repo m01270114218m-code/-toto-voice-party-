@@ -2,71 +2,51 @@ name: Build TOYO Android APK
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
-
+    branches: [ main ]
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.47.5'
-          channel: stable
-          cache: true
-
-      - name: Create Android project
-        working-directory: mobile
-        run: flutter create --platforms=android .
-
-      - name: Configure Android
-        working-directory: mobile
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          import re
-          for p in [Path('android/app/build.gradle.kts'), Path('android/app/build.gradle')]:
-              if p.exists():
-                  s = p.read_text()
-                  s = re.sub(r'compileSdk\s*=\s*[^\n]+', 'compileSdk = 36', s)
-                  s = re.sub(r'targetSdk\s*=\s*[^\n]+', 'targetSdk = 36', s)
-                  s = re.sub(r'compileSdkVersion\s+[^\n]+', 'compileSdkVersion 36', s)
-                  s = re.sub(r'targetSdkVersion\s+[^\n]+', 'targetSdkVersion 36', s)
-                  p.write_text(s)
-          p = Path('android/app/src/main/AndroidManifest.xml')
-          s = p.read_text()
-          marker = '<manifest xmlns:android="http://schemas.android.com/apk/res/android">'
-          if marker in s and 'android.permission.RECORD_AUDIO' not in s:
-              s = s.replace(marker, marker + '''
-    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
-    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
-    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation"/>''', 1)
-              p.write_text(s)
-          PY
-
-      - name: Get Flutter dependencies
-        working-directory: mobile
-        run: flutter pub get
-
-      - name: Build APK with Gradle
-        working-directory: mobile
-        run: |
-          flutter clean
-          ./android/gradlew --stop || true
-          chmod +x android/gradlew
-          ./android/gradlew -p android app:assembleRelease --no-daemon --stacktrace
-          test -f android/app/build/outputs/apk/release/app-release.apk
-          mkdir -p build/app/outputs/flutter-apk
-          cp android/app/build/outputs/apk/release/app-release.apk build/app/outputs/flutter-apk/app-release.apk
-          ls -lh build/app/outputs/flutter-apk/app-release.apk
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: TOYO-Voice-Party-release-apk
-          path: mobile/build/app/outputs/flutter-apk/app-release.apk
-          if-no-files-found: error
+    - uses: actions/checkout@v4
+    - uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.47.5'
+        channel: stable
+        cache: true
+    - name: Create Android platform
+      working-directory: mobile
+      run: flutter create --platforms=android .
+    - name: Configure Android SDK
+      working-directory: mobile
+      run: |
+        python3 - <<'PY'
+        from pathlib import Path
+        import re
+        for p in [Path('android/app/build.gradle.kts'), Path('android/app/build.gradle')]:
+            if not p.exists():
+                continue
+            s = p.read_text()
+            s = re.sub(r'compileSdk\s*=\s*[^\n]+', 'compileSdk = 36', s)
+            s = re.sub(r'targetSdk\s*=\s*[^\n]+', 'targetSdk = 36', s)
+            s = re.sub(r'compileSdkVersion\s+[^\n]+', 'compileSdkVersion 36', s)
+            s = re.sub(r'targetSdkVersion\s+[^\n]+', 'targetSdkVersion 36', s)
+            p.write_text(s)
+        PY
+    - name: Get dependencies
+      working-directory: mobile
+      run: flutter pub get
+    - name: Build APK
+      working-directory: mobile
+      run: |
+        flutter clean
+        ./android/gradlew --stop || true
+        chmod +x android/gradlew
+        ./android/gradlew -p android app:assembleRelease --no-daemon --stacktrace
+        test -f android/app/build/outputs/apk/release/app-release.apk
+        mkdir -p build/app/outputs/flutter-apk
+        cp android/app/build/outputs/apk/release/app-release.apk build/app/outputs/flutter-apk/app-release.apk
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: TOYO-Voice-Party-release-apk
+        path: mobile/build/app/outputs/flutter-apk/app-release.apk
