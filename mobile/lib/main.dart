@@ -50,7 +50,6 @@ class _HomeShellState extends State<HomeShell> {
 
   final pages = const [
     HomePage(),
-    MessagesPage(),
     MomentsPage(),
     MessagesPage(),
     CreatePage(),
@@ -423,9 +422,9 @@ class _RoomPageState extends State<RoomPage> {
                 Expanded(
                   child: GridView.builder(
                     padding: const EdgeInsets.fromLTRB(12, 15, 12, 6),
-                    itemCount: 10,
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 5,
+                    itemCount: widget.seatCount,
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: widget.seatCount == 15 ? 5 : 4,
                       childAspectRatio: .70,
                       crossAxisSpacing: 5,
                       mainAxisSpacing: 8,
