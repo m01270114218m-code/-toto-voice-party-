@@ -122,6 +122,32 @@ class TajBackend {
         .order('created_at');
   }
 
+  static Future<void> requestSeat(String roomId, int seatNumber) async {
+    final id = user?.id;
+    if (id == null) throw StateError('not_authenticated');
+    await client.rpc('assign_seat', params: {
+      'p_room': roomId,
+      'p_seat': seatNumber,
+    });
+  }
+
+  static Future<void> releaseSeat(String roomId, int seatNumber) async {
+    final id = user?.id;
+    if (id == null) throw StateError('not_authenticated');
+    await client.rpc('release_seat', params: {
+      'p_room': roomId,
+      'p_seat': seatNumber,
+    });
+  }
+
+  static Future<void> setMic(String roomId, int seatNumber, bool enabled) async {
+    final id = user?.id;
+    if (id == null) throw StateError('not_authenticated');
+    await client.from('room_seats').update({
+      'is_muted': !enabled,
+    }).eq('room_id', roomId).eq('seat_number', seatNumber).eq('user_id', id);
+  }
+
   static Stream<List<Map<String, dynamic>>> roomSeats(String roomId) {
     return client
         .from('room_seats')
