@@ -37,6 +37,15 @@ class ToyoApi {
     return data;
   }
 
+  static Future<Map<String,dynamic>> me() => request('GET','/api/me');
+  static Future<List<Map<String,dynamic>>> wallet() async {
+    final t=await token();
+    final headers={'Accept':'application/json',if(t!=null)'Authorization':'Bearer $t'};
+    final response=await http.get(Uri.parse('$baseUrl/api/wallet'),headers:headers);
+    if(response.statusCode<200||response.statusCode>=300) throw ToyoApiException('WALLET_FAILED',response.statusCode);
+    return (jsonDecode(response.body) as List).map((e)=>Map<String,dynamic>.from(e as Map)).toList();
+  }
+
   static Future<List<Map<String,dynamic>>> rooms() async {
     final t=await token();
     final headers={'Accept':'application/json',if(t!=null)'Authorization':'Bearer $t'};
