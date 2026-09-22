@@ -1203,6 +1203,16 @@ class _MomentCard extends StatelessWidget {
     ])),
   );
 }
+class FollowingPage extends StatefulWidget {
+  const FollowingPage({super.key});
+  @override State<FollowingPage> createState()=>_FollowingPageState();
+}
+class _FollowingPageState extends State<FollowingPage>{
+  late Future<List<Map<String,dynamic>>> f;
+  @override void initState(){super.initState();f=TajBackend.following();}
+  @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:const Text('المتابَعون')),body:FutureBuilder<List<Map<String,dynamic>>>(future:f,builder:(c,s)=>ListView.builder(itemCount:s.data?.length??0,itemBuilder:(_,i){final r=s.data![i];final profile=(r['profiles'] as Map?)?.cast<String,dynamic>()??{};return ListTile(leading:const CircleAvatar(child:Icon(Icons.person)),title:Text(profile['display_name']?.toString()??'مستخدم'),subtitle:Text('@${profile['username']??''} • ${profile['public_id']??''}'));})));
+}
+
 class SearchPage extends StatefulWidget {
   const SearchPage({super.key});
   @override State<SearchPage> createState() => _SearchPageState();
