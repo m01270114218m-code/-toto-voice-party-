@@ -334,6 +334,48 @@ class TajBackend {
     return List<Map<String, dynamic>>.from(result);
   }
 
+  static Future<List<Map<String, dynamic>>> agencies() async {
+    final result = await client.from('agencies').select('*, profiles:owner_id(display_name,avatar_url,public_id)').order('created_at', ascending: false).limit(50);
+    return List<Map<String, dynamic>>.from(result);
+  }
+
+  static Future<List<Map<String, dynamic>>> agencyMembers(String agencyId) async {
+    final result = await client.from('agency_members').select('agency_id,user_id,role,joined_at,profiles:user_id(display_name,username,public_id,avatar_url)').eq('agency_id', agencyId).order('joined_at');
+    return List<Map<String, dynamic>>.from(result);
+  }
+
+  static Future<String> createAgency(String name, {String? description}) async {
+    final id = user?.id;
+    if (id == null) throw StateError('not_authenticated');
+    final row = await client.from('agencies').insert({
+      'owner_id': id,
+      'name': name.trim(),
+      if (description != null && description.trim().isNotEmpty) 'description': description.trim(),
+    }).select('id').single();
+    await client.from('agency_members').upsert({'agency_id': row['id'], 'user_id': id, 'role': 'owner'});
+    return row['id'].toString();
+  }
+
+  static Future<void> joinAgency(String agencyId) async {
+    final id = user?.id;
+    if (id == null) throw StateError('not_authenticated');
+    await client.from('agency_members').upsert({'agency_id': agencyId, 'user_id': id, 'role': 'member'});
+  }
+
+  static Future<void> leaveAgency(String agencyId) async {
+    final id = user?.id;
+    if (id == null) throw StateError('not_authenticated');
+    await client.from('agency_members').delete().eq('agency_id', agencyId).eq('user_id', id);
+  }
+
+  static Future<void> adminSetUserBanned(String userId, bool banned) async {
+    await client.rpc('admin_set_user_banned', params: {'p_user': userId, 'p_banned': banned});
+  }
+
+  static Future<void> adminResolveReport(String reportId, String status) async {
+    await client.rpc('admin_resolve_report', params: {'p_report': reportId, 'p_status': status});
+  }
+
   static Future<String> sendGift({
     required String receiverId,
     required String giftId,
