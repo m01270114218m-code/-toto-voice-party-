@@ -384,21 +384,18 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
           ),
-          SliverToBoxAdapter(
-            child: FutureBuilder<List<Map<String, dynamic>>>(
+          FutureBuilder<List<Map<String, dynamic>>>(
                         future: _roomsFuture,
                         builder: (context, snapshot) {
                           if (snapshot.connectionState == ConnectionState.waiting) {
-                            return const SliverToBoxAdapter(
-                              child: Padding(
+                            return const Padding(
                                 padding: EdgeInsets.all(28),
                                 child: Center(child: CircularProgressIndicator(color: gold)),
                               ),
                             );
                           }
                           if (snapshot.hasError) {
-                            return SliverToBoxAdapter(
-                              child: Padding(
+                            return Padding(
                                 padding: const EdgeInsets.all(20),
                                 child: Text(
                                   'تعذر تحميل الغرف: ${snapshot.error}',
@@ -409,8 +406,7 @@ class _HomePageState extends State<HomePage> {
                           }
                           final rooms = snapshot.data ?? const <Map<String, dynamic>>[];
                           if (rooms.isEmpty) {
-                            return const SliverToBoxAdapter(
-                              child: Padding(
+                            return const Padding(
                                 padding: EdgeInsets.all(28),
                                 child: Center(
                                   child: Text('لا توجد غرف مباشرة الآن', style: TextStyle(color: Colors.white60)),
