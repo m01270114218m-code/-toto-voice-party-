@@ -43,17 +43,42 @@ class _SplashState extends State<Splash> {
 
 class Login extends StatelessWidget {
   const Login({super.key});
-  Future<void> go(BuildContext c) async { final p=await SharedPreferences.getInstance(); await p.setBool('logged',true); if(c.mounted)Navigator.pushReplacement(c,MaterialPageRoute(builder:(_)=>const Home()));}
-  @override Widget build(BuildContext c)=>Scaffold(body:SafeArea(child:Padding(padding:const EdgeInsets.all(22),child:Column(children:[
-    const SizedBox(height:30),const Text('مرحباً بك',style:TextStyle(fontSize:32,fontWeight:FontWeight.bold)),
-    const SizedBox(height:8),const Text('ادخل إلى عالم الغرف الصوتية',style:TextStyle(color:Colors.white60)),
-    const SizedBox(height:35),
-    TextField(decoration:InputDecoration(labelText:'رقم الهاتف أو البريد الإلكتروني',border:OutlineInputBorder(borderRadius:BorderRadius.circular(16)))),
-    const SizedBox(height:12),TextField(obscureText:true,decoration:InputDecoration(labelText:'كلمة المرور',border:OutlineInputBorder(borderRadius:BorderRadius.circular(16)))),
-    const SizedBox(height:20),SizedBox(width:double.infinity,height:54,child:FilledButton(onPressed:()=>go(c),child:const Text('تسجيل الدخول'))),
-    const SizedBox(height:12),OutlinedButton.icon(onPressed:()=>go(c),icon:const Icon(Icons.g_mobiledata),label:const Text('الدخول بواسطة Google')),
-    TextButton(onPressed:()=>go(c),child:const Text('الدخول برقم الهاتف و OTP')),
-  ])));
+
+  Future<void> go(BuildContext context) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setBool('logged', true);
+    if (!context.mounted) return;
+    Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const Home()));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        body: SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.all(22),
+            children: [
+              const SizedBox(height: 30),
+              const Text('مرحباً بك', textAlign: TextAlign.center, style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              const Text('ادخل إلى عالم الغرف الصوتية', textAlign: TextAlign.center, style: TextStyle(color: Colors.white60)),
+              const SizedBox(height: 35),
+              const TextField(decoration: InputDecoration(labelText: 'رقم الهاتف أو البريد الإلكتروني', border: OutlineInputBorder())),
+              const SizedBox(height: 12),
+              const TextField(obscureText: true, decoration: InputDecoration(labelText: 'كلمة المرور', border: OutlineInputBorder())),
+              const SizedBox(height: 20),
+              SizedBox(width: double.infinity, height: 54, child: FilledButton(onPressed: () => go(context), child: const Text('تسجيل الدخول'))),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(onPressed: () => go(context), icon: const Icon(Icons.g_mobiledata), label: const Text('الدخول بواسطة Google')),
+              TextButton(onPressed: () => go(context), child: const Text('الدخول برقم الهاتف و OTP')),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class Home extends StatefulWidget { const Home({super.key}); @override State<Home> createState()=>_HomeState(); }
@@ -136,7 +161,29 @@ class CreateRoom extends StatelessWidget{ const CreateRoom({super.key}); @overri
   const SizedBox(height:20),SizedBox(height:52,child:FilledButton(onPressed:()=>Navigator.pop(c),child:const Text('إنشاء الغرفة')))
 ]));}
 
-class Messages extends StatelessWidget{const Messages({super.key});@override Widget build(BuildContext c)=>Scaffold(appBar:AppBar(title:const Text('الرسائل الخاصة')),body:ListView(children:List.generate(8,(i)=>ListTile(leading:CircleAvatar(backgroundImage:NetworkImage('https://i.pravatar.cc/80?img=${i+1}')),title:Text(['سارة','محمد','فاطمة','نور','أحمد','خالد','ليلى','جمال'][i]),subtitle:const Text('أهلاً، كيف حالك؟'),trailing:const Text('09:45'))));}
+class Messages extends StatelessWidget {
+  const Messages({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    const names = ['سارة','محمد','فاطمة','نور','أحمد','خالد','ليلى','جمال'];
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        appBar: AppBar(title: const Text('الرسائل الخاصة')),
+        body: ListView.builder(
+          itemCount: names.length,
+          itemBuilder: (context, i) => ListTile(
+            leading: CircleAvatar(child: Text(names[i].substring(0, 1))),
+            title: Text(names[i]),
+            subtitle: const Text('أهلاً، كيف حالك؟'),
+            trailing: const Text('09:45'),
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class Wallet extends StatelessWidget{const Wallet({super.key});@override Widget build(BuildContext c)=>Scaffold(appBar:AppBar(title:const Text('المحفظة')),body:Padding(padding:const EdgeInsets.all(18),child:Column(children:[
   Container(width:double.infinity,padding:const EdgeInsets.all(24),decoration:BoxDecoration(borderRadius:BorderRadius.circular(25),gradient:const LinearGradient(colors:[Color(0xFF7B2CFF),Color(0xFFCC3BFF)])),child:const Column(children:[Text('رصيد Coins',style:TextStyle(color:Colors.white70)),Text('5,250 🪙',style:TextStyle(fontSize:35,fontWeight:FontWeight.bold))])),
