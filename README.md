@@ -1,14 +1,12 @@
-# TOYO — Voice Party
+# تاج لايف (Taj Live)
 
-تطبيق Android عربي RTL لغرف الدردشة الصوتية، مع Backend وواجهة إدارة.
+تطبيق Android عربي RTL لغرف الصوت الاجتماعية.
+هذا المستودع أُعيد بناؤه من الصفر ولا يعتمد على ملفات المشروع القديم.
 
-## البناء
-يتم فحص مشروع Flutter (flutter analyze) قبل إنشاء APK، ثم يتم التحقق من وجود ملف APK قبل رفعه.
+## التشغيل
+cd mobile
+flutter pub get
+flutter run
 
-## المكونات
-- mobile: تطبيق Android Flutter.
-- backend: API Node.js + PostgreSQL + Socket.IO.
-- admin: لوحة تحكم Web.
-
-## ملاحظة
-مفاتيح الخدمات الخارجية مثل Agora وFCM والدفع لا توضع داخل المستودع. يمكن إضافتها لاحقًا عبر متغيرات البيئة.
+## APK
+flutter build apk --release
