@@ -1302,8 +1302,8 @@ class _AdminPageState extends State<AdminPage>{
   @override void initState(){super.initState();_reports=TajBackend.adminReports();_users=TajBackend.adminUsers();}
   Widget _list(Future<List<Map<String,dynamic>>> future,String title,IconData icon,String Function(Map<String,dynamic>) sub)=>FutureBuilder<List<Map<String,dynamic>>>(future:future,builder:(c,s)=>Card(color:surface,child:ExpansionTile(leading:Icon(icon,color:gold),title:Text(title),children:s.data?.map((x)=>ListTile(title:Text(sub(x)),subtitle:Text(x['id']?.toString()??''))).toList()??[const Padding(padding:EdgeInsets.all(16),child:CircularProgressIndicator())]));
   @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:const Text('لوحة الإدارة')),body:ListView(padding:const EdgeInsets.all(12),children:[
-    _list(_users,'المستخدمون',Icons.people,(x)=>'\${x['display_name']??'مستخدم'} • ID \${x['public_id']??'—'} • \${x['is_banned']==true?'محظور':'نشط'}'),
-    _list(_reports,'البلاغات',Icons.report_problem,(x)=>'\${x['reason']??'بلاغ'} • \${x['status']??'open'}'),
+    _list(_users,'المستخدمون',Icons.people,(x)=>x['display_name']?.toString() ?? 'مستخدم'),
+    _list(_reports,'البلاغات',Icons.report_problem,(x)=>x['reason']?.toString() ?? 'بلاغ'),
   ]));
 }
 
