@@ -90,12 +90,12 @@ class _HomeState extends State<Home>{
   int tab=0;
   final rooms=['مجلس TOYO','سهرة القمر','عشاق الطرب','VIP Lounge','أصدقاء مصر','ليلة الألعاب'];
   @override Widget build(BuildContext c){
-    final pages=[homeBody(c),const Messages(),const Wallet(),const Profile()];
+    final pages=[homeBody(c),const Moments(),const Messages(),const Profile()];
     return Scaffold(body:pages[tab],bottomNavigationBar:NavigationBar(selectedIndex:tab,onDestinationSelected:(v)=>setState(()=>tab=v),destinations:const[
       NavigationDestination(icon:Icon(Icons.home_outlined),selectedIcon:Icon(Icons.home),label:'الرئيسية'),
+      NavigationDestination(icon:Icon(Icons.chat_bubble_outline),selectedIcon:Icon(Icons.chat),label:'اللحظات'),
       NavigationDestination(icon:Icon(Icons.chat_bubble_outline),selectedIcon:Icon(Icons.chat),label:'الرسائل'),
-      NavigationDestination(icon:Icon(Icons.account_balance_wallet_outlined),selectedIcon:Icon(Icons.account_balance_wallet),label:'المحفظة'),
-      NavigationDestination(icon:Icon(Icons.person_outline),selectedIcon:Icon(Icons.person),label:'حسابي'),
+      NavigationDestination(icon:Icon(Icons.person_outline),selectedIcon:Icon(Icons.person),label:'أنا'),
     ]));
   }
   Widget homeBody(BuildContext c)=>SafeArea(child:CustomScrollView(slivers:[
