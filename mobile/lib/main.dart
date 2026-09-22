@@ -33,9 +33,166 @@ class TajLiveApp extends StatelessWidget {
         fontFamily: 'sans',
         useMaterial3: true,
       ),
-      home: const Directionality(
-        textDirection: TextDirection.rtl,
-        child: HomeShell(),
+      home: const AuthGate(),
+    );
+  }
+}
+
+class AuthGate extends StatelessWidget {
+  const AuthGate({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<AuthState>(
+      stream: TajBackend.authChanges,
+      builder: (context, snapshot) {
+        if (TajBackend.user != null) return const HomeShell();
+        return const AuthPage();
+      },
+    );
+  }
+}
+
+class AuthPage extends StatefulWidget {
+  const AuthPage({super.key});
+
+  @override
+  State<AuthPage> createState() => _AuthPageState();
+}
+
+class _AuthPageState extends State<AuthPage> {
+  final email = TextEditingController();
+  final password = TextEditingController();
+  final name = TextEditingController();
+  bool signup = false;
+  bool loading = false;
+
+  @override
+  void dispose() {
+    email.dispose();
+    password.dispose();
+    name.dispose();
+    super.dispose();
+  }
+
+  Future<void> submit() async {
+    if (email.text.trim().isEmpty || password.text.length < 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('أدخل بريدًا صحيحًا وكلمة مرور من 6 أحرف على الأقل')),
+      );
+      return;
+    }
+    setState(() => loading = true);
+    try {
+      if (signup) {
+        await TajBackend.signUpWithEmail(
+          email: email.text.trim(),
+          password: password.text,
+          displayName: name.text.trim().isEmpty ? 'مستخدم تاج لايف' : name.text.trim(),
+        );
+      } else {
+        await TajBackend.signInWithEmail(email.text.trim(), password.text);
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(signup ? 'تم إنشاء الحساب. تحقق من بريدك إذا طُلب ذلك.' : 'تم تسجيل الدخول')),
+      );
+    } on AuthException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('حدث خطأ: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        body: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFF3A1554), bg, Color(0xFF050308)],
+            ),
+          ),
+          child: SafeArea(
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: Container(
+                  padding: const EdgeInsets.all(22),
+                  decoration: BoxDecoration(
+                    color: Colors.black45,
+                    borderRadius: BorderRadius.circular(28),
+                    border: Border.all(color: gold.withOpacity(.28)),
+                    boxShadow: [BoxShadow(color: royal.withOpacity(.25), blurRadius: 35)],
+                  ),
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 92,
+                        height: 92,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: const LinearGradient(colors: [royal2, royal]),
+                          border: Border.all(color: gold, width: 2),
+                        ),
+                        child: const Icon(Icons.workspace_premium, color: gold, size: 52),
+                      ),
+                      const SizedBox(height: 14),
+                      const Text('تاج لايف', style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: goldSoft)),
+                      const SizedBox(height: 5),
+                      const Text('غرف صوتية • أصدقاء • هدايا • لحظات', style: TextStyle(color: Colors.white60)),
+                      const SizedBox(height: 26),
+                      if (signup) ...[
+                        TextField(
+                          controller: name,
+                          decoration: const InputDecoration(labelText: 'الاسم', prefixIcon: Icon(Icons.person_outline)),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+                      TextField(
+                        controller: email,
+                        keyboardType: TextInputType.emailAddress,
+                        decoration: const InputDecoration(labelText: 'البريد الإلكتروني', prefixIcon: Icon(Icons.email_outlined)),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: password,
+                        obscureText: true,
+                        decoration: const InputDecoration(labelText: 'كلمة المرور', prefixIcon: Icon(Icons.lock_outline)),
+                      ),
+                      const SizedBox(height: 20),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 52,
+                        child: FilledButton(
+                          onPressed: loading ? null : submit,
+                          style: FilledButton.styleFrom(backgroundColor: royal),
+                          child: loading
+                              ? const CircularProgressIndicator()
+                              : Text(signup ? 'إنشاء حساب' : 'دخول'),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: loading ? null : () => setState(() => signup = !signup),
+                        child: Text(signup ? 'لدي حساب بالفعل' : 'إنشاء حساب جديد'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
