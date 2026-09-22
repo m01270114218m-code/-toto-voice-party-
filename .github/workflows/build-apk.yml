@@ -25,12 +25,19 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Setup Flutter
+      - name: Setup Flutter stable
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.47.5'
           channel: stable
           cache: true
+
+      - name: Setup Android SDK
+        working-directory: .
+        shell: bash
+        run: |
+          set -euo pipefail
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
 
       - name: Generate Android project
         run: flutter create --platforms=android --project-name toyo_voice_party --org com.toyo .
@@ -52,7 +59,7 @@ jobs:
             exit 1
           fi
 
-      - name: Clean
+      - name: Clean generated project
         run: flutter clean
 
       - name: Get dependencies
