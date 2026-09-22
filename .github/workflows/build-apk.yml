@@ -6,47 +6,57 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
     steps:
-    - uses: actions/checkout@v4
-    - uses: subosito/flutter-action@v2
-      with:
-        flutter-version: '3.47.5'
-        channel: stable
-        cache: true
-    - name: Create Android platform
-      working-directory: mobile
-      run: flutter create --platforms=android .
-    - name: Configure Android SDK
-      working-directory: mobile
-      run: |
-        python3 - <<'PY'
-        from pathlib import Path
-        import re
-        for p in [Path('android/app/build.gradle.kts'), Path('android/app/build.gradle')]:
-            if not p.exists():
-                continue
-            s = p.read_text()
-            s = re.sub(r'compileSdk\s*=\s*[^\n]+', 'compileSdk = 36', s)
-            s = re.sub(r'targetSdk\s*=\s*[^\n]+', 'targetSdk = 36', s)
-            s = re.sub(r'compileSdkVersion\s+[^\n]+', 'compileSdkVersion 36', s)
-            s = re.sub(r'targetSdkVersion\s+[^\n]+', 'targetSdkVersion 36', s)
-            p.write_text(s)
-        PY
-    - name: Get dependencies
-      working-directory: mobile
-      run: flutter pub get
-    - name: Build APK
-      working-directory: mobile
-      run: |
-        flutter clean
-        ./android/gradlew --stop || true
-        chmod +x android/gradlew
-        ./android/gradlew -p android app:assembleRelease --no-daemon --stacktrace
-        test -f android/app/build/outputs/apk/release/app-release.apk
-        mkdir -p build/app/outputs/flutter-apk
-        cp android/app/build/outputs/apk/release/app-release.apk build/app/outputs/flutter-apk/app-release.apk
-    - name: Upload APK
-      uses: actions/upload-artifact@v4
-      with:
-        name: TOYO-Voice-Party-release-apk
-        path: mobile/build/app/outputs/flutter-apk/app-release.apk
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.5'
+          channel: stable
+          cache: true
+      - name: Create Android platform
+        run: flutter create --platforms=android .
+      - name: Configure Android SDK
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          for p in [Path('android/app/build.gradle.kts'), Path('android/app/build.gradle')]:
+              if not p.exists():
+                  continue
+              s = p.read_text()
+              s = re.sub(r'compileSdk\s*=\s*[^\n]+', 'compileSdk = 36', s)
+              s = re.sub(r'targetSdk\s*=\s*[^\n]+', 'targetSdk = 36', s)
+              s = re.sub(r'compileSdkVersion\s+[^\n]+', 'compileSdkVersion 36', s)
+              s = re.sub(r'targetSdkVersion\s+[^\n]+', 'targetSdkVersion 36', s)
+              p.write_text(s)
+          PY
+      - name: Clean generated build state
+        run: |
+          flutter clean
+          rm -rf .dart_tool
+      - name: Get dependencies
+        run: flutter pub get
+      - name: Verify Dart project
+        run: flutter analyze --no-fatal-infos
+      - name: Build APK
+        run: |
+          test -f .dart_tool/package_config.json
+          chmod +x android/gradlew
+          ./android/gradlew --stop || true
+          ./android/gradlew -p android app:assembleRelease --no-daemon --stacktrace
+          test -f android/app/build/outputs/apk/release/app-release.apk
+          mkdir -p build/app/outputs/flutter-apk
+          cp android/app/build/outputs/apk/release/app-release.apk build/app/outputs/flutter-apk/app-release.apk
+      - name: Verify APK
+        run: |
+          test -s build/app/outputs/flutter-apk/app-release.apk
+          file build/app/outputs/flutter-apk/app-release.apk
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: TOYO-Voice-Party-release-apk
+          path: mobile/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
