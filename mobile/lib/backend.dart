@@ -274,7 +274,7 @@ class TajBackend {
     if (id == null) return const Stream.empty();
     return client.from('messages')
       .stream(primaryKey: ['id'])
-      .or('and(sender_id.eq.$id,recipient_id.eq.$otherUserId),and(sender_id.eq.$otherUserId,recipient_id.eq.$id)')
+      
       .order('created_at');
   }
 
