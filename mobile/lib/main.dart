@@ -1161,72 +1161,53 @@ class WalletPage extends StatelessWidget {
   }
 }
 
-class ProfilePage extends StatelessWidget {
+class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
+  @override State<ProfilePage> createState() => _ProfilePageState();
+}
+class _ProfilePageState extends State<ProfilePage> {
+  late Future<Map<String, dynamic>?> _profile;
+  @override void initState() { super.initState(); _profile = TajBackend.myProfile(); }
+  @override Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: ListView(
-          children: [
-            Container(
-              height: 285,
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
+        child: FutureBuilder<Map<String, dynamic>?>(
+          future: _profile,
+          builder: (context, snapshot) {
+            final p = snapshot.data ?? const <String, dynamic>{};
+            final name = (p['display_name'] ?? 'مستخدم تاج لايف').toString();
+            final publicId = (p['public_id'] ?? '—').toString();
+            final country = (p['country'] ?? 'مصر').toString();
+            final bio = (p['bio'] ?? '').toString();
+            return ListView(children: [
+              Container(
+                height: 300,
+                decoration: const BoxDecoration(gradient: LinearGradient(
+                  begin: Alignment.topCenter, end: Alignment.bottomCenter,
                   colors: [Color(0xFF4A1A69), bg],
-                ),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 112,
-                    height: 112,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: gold, width: 2),
-                      gradient: const LinearGradient(colors: [royal2, royal]),
-                    ),
-                    child: const Icon(Icons.person, size: 60),
-                  ),
+                )),
+                child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  Container(width: 112, height: 112, decoration: BoxDecoration(
+                    shape: BoxShape.circle, border: Border.all(color: gold, width: 2),
+                    gradient: const LinearGradient(colors: [royal2, royal]),
+                  ), child: const Icon(Icons.person, size: 60)),
                   const SizedBox(height: 12),
-                  const Text(
-                    'أمير القلوب',
-                    style: TextStyle(fontSize: 25, fontWeight: FontWeight.w900),
-                  ),
-                  const Text('ID: 1501637 • 🇪🇬 مصر', style: TextStyle(color: Colors.white60)),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'VIP 5 • المستوى 32',
-                    style: TextStyle(color: gold, fontWeight: FontWeight.bold),
-                  ),
-                ],
+                  Text(name, style: const TextStyle(fontSize: 25, fontWeight: FontWeight.w900)),
+                  Text('ID: $publicId • $country', style: const TextStyle(color: Colors.white60)),
+                  if (bio.isNotEmpty) Padding(padding: const EdgeInsets.all(10), child: Text(bio, textAlign: TextAlign.center)),
+                ]),
               ),
-            ),
-            const ListTile(
-              leading: Icon(Icons.emoji_events, color: gold),
-              title: Text('الإنجازات'),
-            ),
-            const ListTile(
-              leading: Icon(Icons.card_giftcard, color: royal2),
-              title: Text('الهدايا والشارات'),
-            ),
-            const ListTile(
-              leading: Icon(Icons.workspace_premium, color: gold),
-              title: Text('VIP والمستوى'),
-            ),
-            const ListTile(
-              leading: Icon(Icons.shield_outlined),
-              title: Text('الحساب والأمان'),
-            ),
-            const ListTile(
-              leading: Icon(Icons.settings),
-              title: Text('الإعدادات'),
-            ),
-          ],
+              ListTile(leading: const Icon(Icons.account_balance_wallet, color: gold), title: const Text('المحفظة'),
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const WalletPage()))),
+              const ListTile(leading: Icon(Icons.emoji_events, color: gold), title: Text('الإنجازات')),
+              const ListTile(leading: Icon(Icons.card_giftcard, color: royal2), title: Text('الهدايا والشارات')),
+              const ListTile(leading: Icon(Icons.workspace_premium, color: gold), title: Text('VIP والمستوى')),
+              const ListTile(leading: Icon(Icons.shield_outlined), title: Text('الحساب والأمان')),
+              const ListTile(leading: Icon(Icons.settings), title: Text('الإعدادات')),
+              ListTile(leading: const Icon(Icons.logout, color: Colors.redAccent), title: const Text('تسجيل الخروج'),
+                onTap: () => TajBackend.signOut()),
+            ]);
+          },
         ),
       ),
     );
