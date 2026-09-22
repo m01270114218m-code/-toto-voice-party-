@@ -1,6 +1,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'core/toyo_api.dart';
+import 'core/toyo_voice_service.dart';
 
 const purple = Color(0xFF8A2BE2);
 const deep = Color(0xFF050307);
@@ -45,14 +47,29 @@ class _SplashState extends State<Splash> {
   ])));
 }
 
-class Login extends StatelessWidget {
+class Login extends StatefulWidget {
   const Login({super.key});
-
+  @override State<Login> createState()=>_LoginState();
+}
+class _LoginState extends State<Login>{
+  final _email=TextEditingController();
+  final _password=TextEditingController();
+  @override void dispose(){_email.dispose();_password.dispose();super.dispose();}
   Future<void> go(BuildContext context) async {
-    final p = await SharedPreferences.getInstance();
-    await p.setBool('logged', true);
-    if (!context.mounted) return;
-    Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const Home()));
+    final email = _email.text.trim();
+    final password = _password.text;
+    if(email.isEmpty || password.isEmpty){
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('أدخل البريد وكلمة المرور')));
+      return;
+    }
+    try{
+      await ToyoApi.login(email,password);
+      if (!context.mounted) return;
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const Home()));
+    }catch(e){
+      if(!context.mounted)return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('تعذر تسجيل الدخول: $e')));
+    }
   }
 
   @override
@@ -69,14 +86,14 @@ class Login extends StatelessWidget {
               const SizedBox(height: 8),
               const Text('صوت • أصدقاء • هدايا • VIP', textAlign: TextAlign.center, style: TextStyle(color: Colors.white60)),
               const SizedBox(height: 35),
-              const TextField(decoration: InputDecoration(labelText: 'رقم الهاتف أو البريد الإلكتروني', border: OutlineInputBorder())),
+              TextField(controller:_email,keyboardType:TextInputType.emailAddress,decoration: const InputDecoration(labelText: 'البريد الإلكتروني', border: OutlineInputBorder())),
               const SizedBox(height: 12),
-              const TextField(obscureText: true, decoration: InputDecoration(labelText: 'كلمة المرور', border: OutlineInputBorder())),
+              TextField(controller:_password,obscureText: true,decoration: const InputDecoration(labelText: 'كلمة المرور', border: OutlineInputBorder())),
               const SizedBox(height: 20),
               SizedBox(width: double.infinity, height: 54, child: FilledButton(onPressed: () => go(context), child: const Text('تسجيل الدخول'))),
               const SizedBox(height: 12),
-              OutlinedButton.icon(onPressed: () => go(context), icon: const Icon(Icons.g_mobiledata), label: const Text('الدخول بواسطة Google')),
-              TextButton(onPressed: () => go(context), child: const Text('الدخول برقم الهاتف و OTP')),
+              OutlinedButton.icon(onPressed: () {}, icon: const Icon(Icons.g_mobiledata), label: const Text('الدخول بواسطة Google')),
+              TextButton(onPressed: () {}, child: const Text('الدخول برقم الهاتف و OTP')),
             ],
           ),
         ),
