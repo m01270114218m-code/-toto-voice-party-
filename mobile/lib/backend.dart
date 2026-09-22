@@ -163,11 +163,36 @@ class TajBackend {
     return List<Map<String, dynamic>>.from(result);
   }
 
-  static Future<List<Map<String, dynamic>>> myWallet() async {
+  static Future<Map<String, dynamic>?> myWallet() async {
+    final id = user?.id;
+    if (id == null) return null;
+    return client.from('profiles').select('coins,diamonds,level,experience,vip_level').eq('id', id).maybeSingle();
+  }
+
+  static Future<List<Map<String, dynamic>>> walletLedger() async {
     final id = user?.id;
     if (id == null) return [];
-    final result = await client.from('wallets').select().eq('user_id', id).limit(1);
+    final result = await client.from('wallet_ledger').select().eq('user_id', id).order('created_at', ascending: false).limit(50);
     return List<Map<String, dynamic>>.from(result);
+  }
+
+  static Future<void> createMoment(String text, {String? mediaUrl}) async {
+    final id = user?.id;
+    if (id == null) throw StateError('not_authenticated');
+    await client.from('moments').insert({
+      'author_id': id,
+      'text': text.trim(),
+      if (mediaUrl != null && mediaUrl.isNotEmpty) 'media_url': mediaUrl,
+    });
+  }
+
+  static Future<List<Map<String, dynamic>>> moments() async {
+    final result = await client.from('moments').select('*, profiles:author_id(display_name,avatar_url,public_id)').order('created_at', ascending: false).limit(50);
+    return List<Map<String, dynamic>>.from(result);
+  }
+
+  static Future<void> markNotificationRead(String id) async {
+    await client.from('notifications').update({'read_at': DateTime.now().toIso8601String()}).eq('id', id);
   }
 
   static Future<void> updateProfile({
