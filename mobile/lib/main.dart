@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'backend.dart';
 import 'voice_service.dart';
 import 'payment_service.dart';
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 const bg = Color(0xFF08050D);
@@ -678,7 +679,10 @@ class _RoomPageState extends State<RoomPage> {
                         ),
                       ),
                       IconButton(onPressed: () => _roomSettings(context), icon: const Icon(Icons.settings_outlined)),
-                      IconButton(onPressed: () {}, icon: const Icon(Icons.share_outlined)),
+                      IconButton(onPressed: () async {
+                        await Clipboard.setData(ClipboardData(text: 'انضم إلى غرفة تاج لايف: ${widget.name}'));
+                        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم نسخ دعوة الغرفة')));
+                      }, icon: const Icon(Icons.share_outlined)),
                       const CircleAvatar(
                         radius: 19,
                         backgroundColor: royal,
