@@ -176,7 +176,7 @@ class Room extends StatefulWidget { final String name; final String? roomId; con
 class _RoomState extends State<Room>{
   final messages=<String>['مرحباً بكم في الغرفة 👋','يرجى احترام الآخرين والتواصل بأدب.'];
   final voice=ToyoVoiceService();
-  bool mic=false; int seat=-1; int selectedSeat=0; bool joining=true; String rtcStatus='جاري الاتصال بالغرفة...';
+  bool mic=false; int seat=-1; int selectedSeat=0; bool joining=true; String rtcStatus='جاري الاتصال بالغرفة...';\n  int maxSeats=8;\n  String? ownerId;
   @override void initState(){super.initState(); _connect();}
   Future<void> _connect() async {
     if(widget.roomId==null){setState(() { joining=false; rtcStatus='هذه غرفة عرض فقط'; });return;}
