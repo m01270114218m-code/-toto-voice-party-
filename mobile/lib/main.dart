@@ -1437,12 +1437,22 @@ class _WalletPageState extends State<WalletPage> {
   late Future<Map<String, dynamic>?> _wallet;
   @override void initState() { super.initState(); _wallet = TajBackend.myWallet(); }
 
-  Future<void> _topup(int amount) async {
+  Future<void> _topup(int coins, int amountEgp) async {
+    final email = TajBackend.user?.email;
+    final phone = TajBackend.user?.phone;
+    if (email == null || email.isEmpty || phone == null || phone.isEmpty) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('أضف رقم هاتف صالحًا للحساب أولًا لإتمام الدفع')));
+      return;
+    }
     try {
-      await TajBackend.client.from('wallet_topups').insert({'user_id': TajBackend.user?.id, 'amount': amount, 'status': 'pending'});
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم إنشاء طلب الشحن، وسيتم تحديث الرصيد بعد تأكيد الدفع')));
+      await TajPaymentService.startTopUp(
+        amountMinor: amountEgp * 100,
+        coins: coins,
+        email: email,
+        phone: phone,
+      );
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تعذر إنشاء طلب الشحن: $e')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تعذر بدء الدفع: $e')));
     }
   }
 
@@ -1465,10 +1475,14 @@ class _WalletPageState extends State<WalletPage> {
             ]),
           ),
           const SizedBox(height: 20),
-          for (final x in [100,550,1250,2750,6000])
-            Card(color: surface, child: ListTile(title: Text('$x 🪙'), subtitle: const Text('طلب شحن'), trailing: FilledButton(onPressed: () => _topup(x), style: FilledButton.styleFrom(backgroundColor: royal), child: const Text('شراء')))),
+          for (final x in const [[100,10],[550,50],[1250,100],[2750,200],[6000,400]])
+            Card(color: surface, child: ListTile(
+              title: Text(x[0].toString() + ' 🪙'),
+              subtitle: Text(x[1].toString() + ' جنيه مصري'),
+              trailing: FilledButton(onPressed: () => _topup(x[0], x[1]), style: FilledButton.styleFrom(backgroundColor: royal), child: const Text('شراء')),
+            )),
           const SizedBox(height: 15),
-          const Text('ملاحظة: الشحن الحقيقي يحتاج بوابة دفع وربط webhook قبل تحصيل أموال حقيقية.', style: TextStyle(color: Colors.white54)),
+          const Text('الدفع يتم عبر Paymob، وتأكيد إضافة العملات لا يحدث إلا بعد وصول webhook موثّق.', style: TextStyle(color: Colors.white54)),
         ]);
       },
     ),
