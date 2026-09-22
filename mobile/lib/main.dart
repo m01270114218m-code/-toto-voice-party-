@@ -1361,6 +1361,17 @@ class _AdminPageState extends State<AdminPage>{
     ListTile(leading:const Icon(Icons.business,color:royal2),title:const Text('الوكالات'),onTap:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const AgencyPage()))),
   ]));
 }
+class AgencyPage extends StatefulWidget {
+  const AgencyPage({super.key});
+  @override State<AgencyPage> createState()=>_AgencyPageState();
+}
+class _AgencyPageState extends State<AgencyPage>{
+  late Future<List<Map<String,dynamic>>> future;
+  @override void initState(){super.initState();future=TajBackend.agencies();}
+  Future<void> create() async { final c=TextEditingController(); final ok=await showDialog<bool>(context:context,builder:(_)=>AlertDialog(title:const Text('إنشاء وكالة'),content:TextField(controller:c,decoration:const InputDecoration(labelText:'اسم الوكالة')),actions:[TextButton(onPressed:()=>Navigator.pop(context,false),child:const Text('إلغاء')),FilledButton(onPressed:()=>Navigator.pop(context,true),child:const Text('إنشاء'))])); if(ok!=true||c.text.trim().isEmpty){c.dispose();return;} try{await TajBackend.createAgency(c.text.trim());if(mounted)setState(()=>future=TajBackend.agencies());}catch(e){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('تعذر إنشاء الوكالة: '+e.toString())));}finally{c.dispose();} }
+  @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:const Text('الوكالات'),actions:[IconButton(onPressed:create,icon:const Icon(Icons.add_business,color:gold))]),body:FutureBuilder<List<Map<String,dynamic>>>(future:future,builder:(c,s){if(s.connectionState==ConnectionState.waiting)return const Center(child:CircularProgressIndicator(color:gold));final rows=s.data??const <Map<String,dynamic>>[];return ListView(padding:const EdgeInsets.all(12),children:rows.map((a)=>Card(color:surface,child:ListTile(leading:const CircleAvatar(backgroundColor:royal,child:Icon(Icons.business,color:gold)),title:Text(a['name']?.toString()??'وكالة'),subtitle:Text(a['description']?.toString()??'وكالة تاج لايف'),trailing:FilledButton(onPressed:()=>TajBackend.joinAgency(a['id'].toString()),child:const Text('انضمام')))).toList());}));
+}
+
 class CreatePage extends StatelessWidget {
   const CreatePage({super.key});
   @override
