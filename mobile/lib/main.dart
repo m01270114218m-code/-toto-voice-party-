@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'backend.dart';
 
 const bg = Color(0xFF08050D);
 const surface = Color(0xFF14101C);
@@ -8,7 +9,9 @@ const royal2 = Color(0xFFB45CFF);
 const gold = Color(0xFFFFC857);
 const goldSoft = Color(0xFFFFE4A3);
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await TajBackend.initialize();
   runApp(const TajLiveApp());
 }
 
