@@ -11,15 +11,16 @@ function App(){
  const [section,setSection]=useState('dashboard');
  const nav=[
   ['dashboard','لوحة التحكم',Home],['rooms','الغرف الصوتية',Mic2],['users','المستخدمون',Users],
-  ['gifts','الهدايا',Gift],['wallet','العملات والمعاملات',Wallet],['moderation','الأمان والبلاغات',ShieldAlert],
-  ['analytics','التقارير والإحصائيات',BarChart3],['settings','الإعدادات',Settings]
+  ['gifts','الهدايا والإطارات',Gift],['wallet','المحفظة والعملات',Wallet],['moderation','الأمان والبلاغات',ShieldAlert],
+  ['analytics','التقارير والإحصائيات',BarChart3],['vip','VIP والمستويات',Gift],['agencies','الوكالات والقبائل',Users],
+  ['events','الفعاليات والألعاب',BarChart3],['content','البنرات واللحظات',Home],['settings','الإعدادات',Settings]
  ];
  return <div className="app" dir="rtl">
-  <aside><div className="brand"><div className="logo">◉</div><div><b>VoiceRoom</b><small>لوحة الإدارة</small></div></div>
+  <aside><div className="brand"><div className="logo">◉</div><div><b>TOYO</b><small>لوحة الإدارة</small></div></div>
    <div className="nav">{nav.map(([id,t,I])=><button className={section===id?'active':''} onClick={()=>setSection(id)}><I size={19}/>{t}</button>)}</div>
    <button className="logout"><LogOut size={18}/>تسجيل الخروج</button>
   </aside>
-  <main><header><button className="menu"><Menu/></button><div><h2>{nav.find(x=>x[0]===section)?.[1]}</h2><span>إدارة المنصة في الوقت الحقيقي</span></div><div className="admin">👑 مدير النظام</div></header>
+  <main><header><button className="menu"><Menu/></button><div><h2>{nav.find(x=>x[0]===section)?.[1]}</h2><span>إدارة TOYO بالكامل من لوحة واحدة</span></div><div className="admin">👑 مدير النظام</div></header>
    {section==='dashboard'?<Dashboard/>:<Section title={nav.find(x=>x[0]===section)?.[1]||''} type={section}/>}
   </main>
  </div>
