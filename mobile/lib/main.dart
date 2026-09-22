@@ -83,23 +83,34 @@ class _HomeShellState extends State<HomeShell> {
   }
 }
 
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
-  final rooms = const [
-    ('مجلس العرب', '1,248'),
-    ('ليالي القمر', '986'),
-    ('سهرة الأصدقاء', '742'),
-    ('جلسة طرب', '615'),
-    ('VIP Lounge', '503'),
-    ('أهل السهرة', '389'),
-  ];
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  late Future<List<Map<String, dynamic>>> _roomsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _roomsFuture = TajBackend.liveRooms();
+  }
+
+  Future<void> _refresh() async {
+    setState(() => _roomsFuture = TajBackend.liveRooms());
+    await _roomsFuture;
+  }
 
   @override
   Widget build(BuildContext context) {
     return SafeArea(
-      child: CustomScrollView(
-        slivers: [
+      child: RefreshIndicator(
+        onRefresh: _refresh,
+        child: CustomScrollView(
+          slivers: [
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 18, 16, 10),
@@ -216,11 +227,52 @@ class HomePage extends StatelessWidget {
               ),
             ),
           ),
-          SliverList.builder(
-            itemCount: rooms.length,
-            itemBuilder: (context, index) {
-              final room = rooms[index];
-              return _RoomCard(name: room.$1, listeners: room.$2);
+          FutureBuilder<List<Map<String, dynamic>>>(
+            future: _roomsFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.all(28),
+                    child: Center(child: CircularProgressIndicator(color: gold)),
+                  ),
+                );
+              }
+              if (snapshot.hasError) {
+                return SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Text(
+                      'تعذر تحميل الغرف: ${snapshot.error}',
+                      style: const TextStyle(color: Colors.white60),
+                    ),
+                  ),
+                );
+              }
+              final rooms = snapshot.data ?? const <Map<String, dynamic>>[];
+              if (rooms.isEmpty) {
+                return const SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.all(28),
+                    child: Center(
+                      child: Text('لا توجد غرف مباشرة الآن', style: TextStyle(color: Colors.white60)),
+                    ),
+                  ),
+                );
+              }
+              return SliverList.builder(
+                itemCount: rooms.length,
+                itemBuilder: (context, index) {
+                  final room = rooms[index];
+                  final owner = room['profiles'] as Map<String, dynamic>?;
+                  return _RoomCard(
+                    name: room['name'] as String? ?? 'غرفة تاج لايف',
+                    listeners: '${room['viewer_count'] ?? 0}',
+                    roomId: room['id'] as String,
+                    ownerName: owner?['display_name'] as String?,
+                  );
+                },
+              );
             },
           ),
           const SliverToBoxAdapter(child: SizedBox(height: 20)),
@@ -251,8 +303,15 @@ class HomePage extends StatelessWidget {
 class _RoomCard extends StatelessWidget {
   final String name;
   final String listeners;
+  final String roomId;
+  final String? ownerName;
 
-  const _RoomCard({required this.name, required this.listeners});
+  const _RoomCard({
+    required this.name,
+    required this.listeners,
+    required this.roomId,
+    this.ownerName,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -262,7 +321,7 @@ class _RoomCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         onTap: () => Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => RoomPage(name: name)),
+          MaterialPageRoute(builder: (_) => RoomPage(name: name, roomId: roomId)),
         ),
         child: Container(
           padding: const EdgeInsets.all(12),
@@ -316,7 +375,7 @@ class _RoomCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 7),
                     Text(
-                      '🇪🇬 مصر • $listeners مستمع',
+                      '🇪🇬 مصر • $listeners مستمع • ${ownerName ?? 'مالك الغرفة'}',
                       style: const TextStyle(color: Colors.white60),
                     ),
                     const SizedBox(height: 7),
@@ -346,8 +405,9 @@ class _RoomCard extends StatelessWidget {
 
 class RoomPage extends StatefulWidget {
   final String name;
+  final String? roomId;
   final int seatCount;
-  const RoomPage({super.key, required this.name, this.seatCount = 8});
+  const RoomPage({super.key, required this.name, this.roomId, this.seatCount = 8});
 
   @override
   State<RoomPage> createState() => _RoomPageState();
@@ -355,15 +415,45 @@ class RoomPage extends StatefulWidget {
 
 class _RoomPageState extends State<RoomPage> {
   int selectedSeat = -1;
+  bool _joined = false;
   bool micOn = false;
   final messages = <String>[
     'مرحباً بكم في الغرفة 👋',
     'أهلاً بكل الموجودين ❤️',
     'يرجى احترام الجميع والتواصل بأدب.',
   ];
+  final messageController = TextEditingController();
+
+  @override
+  void dispose() {
+    messageController.dispose();
+    if (widget.roomId != null) {
+      TajBackend.leaveRoom(widget.roomId!);
+    }
+    super.dispose();
+  }
+
+  Future<void> _sendMessage(String value) async {
+    if (value.trim().isEmpty) return;
+    final roomId = widget.roomId;
+    if (roomId == null || TajBackend.user == null) {
+      setState(() => messages.add(value.trim()));
+    } else {
+      try {
+        await TajBackend.sendRoomMessage(roomId, value);
+      } catch (_) {
+        if (mounted) setState(() => messages.add(value.trim()));
+      }
+    }
+    messageController.clear();
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (!_joined && widget.roomId != null && TajBackend.user != null) {
+      _joined = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) => TajBackend.joinRoom(widget.roomId!));
+    }
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
@@ -476,11 +566,8 @@ class _RoomPageState extends State<RoomPage> {
                         children: [
                           Expanded(
                             child: TextField(
-                              onSubmitted: (v) {
-                                if (v.trim().isNotEmpty) {
-                                  setState(() => messages.add(v.trim()));
-                                }
-                              },
+                              onSubmitted: _sendMessage,
+                              controller: messageController,
                               decoration: InputDecoration(
                                 hintText: 'اكتب رسالة...',
                                 isDense: true,
@@ -735,7 +822,29 @@ class _CreateRoomPageState extends State<CreateRoomPage> {
       ),
       const SizedBox(height: 20),
       FilledButton(
-        onPressed: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => RoomPage(name: name.text.trim().isEmpty ? 'غرفتي الملكية' : name.text.trim(), seatCount: seats))),
+        onPressed: () async {
+          final roomName = name.text.trim().isEmpty ? 'غرفتي الملكية' : name.text.trim();
+          if (TajBackend.user == null) {
+            if (!context.mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('سجّل الدخول أولاً لإنشاء غرفة حقيقية')),
+            );
+            return;
+          }
+          try {
+            final roomId = await TajBackend.createRoom(name: roomName, seatCount: seats);
+            if (!context.mounted) return;
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => RoomPage(name: roomName, roomId: roomId, seatCount: seats)),
+            );
+          } catch (e) {
+            if (!context.mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('تعذر إنشاء الغرفة: $e')),
+            );
+          }
+        },
         child: const Text('إنشاء ودخول'),
       ),
     ]),
