@@ -140,15 +140,50 @@ class _HomeState extends State<Home>{
 
 Widget _pill(String t,IconData i,{Color color=Colors.white})=>Container(padding:const EdgeInsets.symmetric(horizontal:10,vertical:7),decoration:BoxDecoration(color:Colors.white10,borderRadius:BorderRadius.circular(20)),child:Row(children:[Icon(i,size:16,color:color),const SizedBox(width:4),Text(t)]));
 
-class Room extends StatefulWidget { final String name; const Room({super.key,required this.name}); @override State<Room> createState()=>_RoomState(); }
+class Room extends StatefulWidget { final String name; final String? roomId; const Room({super.key,required this.name,this.roomId}); @override State<Room> createState()=>_RoomState(); }
 class _RoomState extends State<Room>{
-  final messages=<String>['مرحباً بكم في الغرفة 👋','يرجى احترام الآخرين والتواصل بأدب.','أحمد: أهلاً بالجميع ❤️'];
-  bool mic=false; int seat=-1;
+  final messages=<String>['مرحباً بكم في الغرفة 👋','يرجى احترام الآخرين والتواصل بأدب.'];
+  final voice=ToyoVoiceService();
+  bool mic=false; int seat=-1; int selectedSeat=0; bool joining=true; String rtcStatus='جاري الاتصال بالغرفة...';
+  @override void initState(){super.initState(); _connect();}
+  Future<void> _connect() async {
+    if(widget.roomId==null){setState(()=>{joining=false,rtcStatus='هذه غرفة عرض فقط'});return;}
+    try{
+      await ToyoApi.joinRoom(widget.roomId!);
+      final data=await ToyoApi.rtcToken(widget.roomId!);
+      await voice.join(appId:data['appId'],token:data['token'],channelId:data['channelName'],account:data['uid'],publish:false);
+      final msgs=await ToyoApi.messages(widget.roomId!);
+      if(mounted)setState((){messages
+        ..clear()
+        ..addAll(msgs.map((m)=>'${m['display_name']??''}: ${m['text']??''}')); joining=false;rtcStatus='متصل صوتياً';});
+    }catch(e){if(mounted)setState(()=>{joining=false,rtcStatus='الصوت غير مهيأ بعد — أضف مفاتيح Agora'});}
+  }
+  @override void dispose(){voice.leave(); if(widget.roomId!=null) ToyoApi.leaveRoom(widget.roomId!); super.dispose();}
+  Future<void> _toggleSeat() async {
+    if(widget.roomId==null){setState(()=>seat=seat<0?selectedSeat:-1);return;}
+    try{
+      if(seat<0){
+        await ToyoApi.requestSeat(widget.roomId!,selectedSeat+1);
+        final data=await ToyoApi.rtcToken(widget.roomId!,publisher:true);
+        await voice.leave();
+        await voice.join(appId:data['appId'],token:data['token'],channelId:data['channelName'],account:data['uid'],publish:true);
+        setState(()=>{seat=selectedSeat, mic=false,rtcStatus='أنت على المايك'});
+      }else{
+        await ToyoApi.leaveSeat(widget.roomId!,seat+1);
+        await voice.leave();
+        final data=await ToyoApi.rtcToken(widget.roomId!);
+        await voice.join(appId:data['appId'],token:data['token'],channelId:data['channelName'],account:data['uid'],publish:false);
+        setState(()=>{seat=-1,mic=true,rtcStatus='متصل كمستمع'});
+      }
+    }catch(e){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('تعذر تغيير المقعد: $e')));}
+  }
   @override Widget build(BuildContext c)=>Scaffold(
     body:Stack(children:[
       Positioned.fill(child:Container(decoration:const BoxDecoration(gradient:LinearGradient(begin:Alignment.topCenter,end:Alignment.bottomCenter,colors:[Color(0xFF321052),Color(0xFF090414)])),child:CustomPaint(painter:StarPainter()))),
       SafeArea(child:Column(children:[
         Padding(padding:const EdgeInsets.symmetric(horizontal:12,vertical:8),child:Row(children:[IconButton(onPressed:()=>Navigator.pop(c),icon:const Icon(Icons.arrow_back)),Expanded(child:Text(widget.name,style:const TextStyle(fontSize:20,fontWeight:FontWeight.bold))),const Icon(Icons.share),const SizedBox(width:8),const CircleAvatar(backgroundImage:NetworkImage('https://i.pravatar.cc/70?img=12'))])),
+        const SizedBox(height:10),
+        Padding(padding:const EdgeInsets.symmetric(horizontal:16),child:Row(children:[const Icon(Icons.circle,size:9,color:Colors.greenAccent),const SizedBox(width:6),Expanded(child:Text(rtcStatus,style:const TextStyle(color:Colors.white70)))])),
         const SizedBox(height:10),
         Expanded(child:GridView.count(crossAxisCount:5,childAspectRatio:.75,padding:const EdgeInsets.all(12),children:List.generate(10,(i)=>seatWidget(i)))),
         Container(margin:const EdgeInsets.all(12),padding:const EdgeInsets.all(12),decoration:BoxDecoration(color:Colors.black45,borderRadius:BorderRadius.circular(20)),height:220,child:Column(children:[
@@ -158,13 +193,13 @@ class _RoomState extends State<Room>{
         ])),
         Padding(padding:const EdgeInsets.fromLTRB(12,0,12,12),child:Row(children:[
           _round(Icons.card_giftcard,gold,(){showModalBottomSheet(context:c,backgroundColor:const Color(0xFF160A28),builder:(_)=>GiftSheet());}),
-          _round(mic?Icons.mic:Icons.mic_off,Colors.white,()=>setState(()=>mic=!mic)),
+          _round(mic?Icons.mic_off:Icons.mic,Colors.white,() async {final next=!mic; if(seat>=0){await voice.setMuted(next);setState(()=>mic=next);} }),
           _round(Icons.add_reaction,Colors.pink,(){}),
-          Expanded(child:FilledButton(onPressed:()=>setState(()=>seat=seat<0?0:-1),child:Text(seat<0?'طلب مقعد':'مغادرة المقعد'))),
+          Expanded(child:FilledButton(onPressed:_toggleSeat,child:Text(seat<0?'طلب مقعد':'مغادرة المقعد'))),
         ]))
       ]))
     ]));
-  Widget seatWidget(int i)=>GestureDetector(onTap:()=>setState(()=>seat=i),child:Column(children:[
+  Widget seatWidget(int i)=>GestureDetector(onTap:()=>setState(()=>selectedSeat=i),child:Column(children:[
     Container(width:55,height:55,decoration:BoxDecoration(shape:BoxShape.circle,border:Border.all(color:i==seat?gold:Colors.white24,width:2),gradient:const LinearGradient(colors:[purple,Color(0xFF26103E)])),child:i==0?const Icon(Icons.person):const Icon(Icons.event_seat,color:Colors.white54)),
     const SizedBox(height:5),Text(i==0?'المالك':'${i+1}',style:const TextStyle(fontSize:11))
   ]));
