@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'backend.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 const bg = Color(0xFF08050D);
 const surface = Color(0xFF14101C);
