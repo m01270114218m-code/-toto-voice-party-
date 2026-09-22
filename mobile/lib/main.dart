@@ -69,6 +69,12 @@ class _AuthPageState extends State<AuthPage> {
   bool loading = false;
 
   @override
+  void initState() {
+    super.initState();
+    _activeSeatCount = widget.seatCount;
+  }
+
+  @override
   void dispose() {
     email.dispose();
     password.dispose();
@@ -567,6 +573,7 @@ class RoomPage extends StatefulWidget {
 
 class _RoomPageState extends State<RoomPage> {
   int selectedSeat = -1;
+  late int _activeSeatCount;
   bool _joined = false;
   bool micOn = false;
   bool _seatBusy = false;
@@ -655,6 +662,7 @@ class _RoomPageState extends State<RoomPage> {
                           ],
                         ),
                       ),
+                      IconButton(onPressed: () => _roomSettings(context), icon: const Icon(Icons.settings_outlined)),
                       IconButton(onPressed: () {}, icon: const Icon(Icons.share_outlined)),
                       const CircleAvatar(
                         radius: 19,
@@ -686,9 +694,9 @@ class _RoomPageState extends State<RoomPage> {
                   child: widget.roomId == null
                       ? GridView.builder(
                           padding: const EdgeInsets.fromLTRB(12, 15, 12, 6),
-                          itemCount: widget.seatCount,
+                          itemCount: _activeSeatCount,
                           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: widget.seatCount == 15 ? 5 : 4,
+                            crossAxisCount: _activeSeatCount == 15 ? 5 : 4,
                             childAspectRatio: .70,
                             crossAxisSpacing: 5,
                             mainAxisSpacing: 8,
@@ -724,6 +732,7 @@ class _RoomPageState extends State<RoomPage> {
                                   index: i,
                                   selected: mine,
                                   occupied: occupied,
+                                  onLongPress: occupied && !mine ? () => _moderate(context, row?['user_id']?.toString() ?? '') : null,
                                   onTap: () async {
                                     if (_seatBusy) return;
                                     setState(() => _seatBusy = true);
@@ -855,6 +864,63 @@ class _RoomPageState extends State<RoomPage> {
     );
   }
 
+  Future<void> _roomSettings(BuildContext context) async {
+    if (widget.roomId == null) return;
+    final selected = await showModalBottomSheet<int>(
+      context: context,
+      backgroundColor: surface,
+      builder: (_) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Padding(padding: EdgeInsets.all(18), child: Text('إعدادات الغرفة', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold))),
+          for (final count in [8, 10, 15])
+            ListTile(
+              leading: Icon(Icons.mic_external_on, color: count == _activeSeatCount ? gold : Colors.white54),
+              title: Text('$count ميكروفونات'),
+              trailing: count == _activeSeatCount ? const Icon(Icons.check, color: gold) : null,
+              onTap: () => Navigator.pop(context, count),
+            ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.shield_outlined, color: gold),
+            title: const Text('إدارة المستخدمين'),
+            onTap: () => Navigator.pop(context, -1),
+          ),
+        ]),
+      ),
+    );
+    if (selected == null || selected < 1) return;
+    if (selected == _activeSeatCount) return;
+    try {
+      await TajBackend.updateRoomSeats(widget.roomId!, selected);
+      if (mounted) setState(() => _activeSeatCount = selected);
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('لا يمكن تغيير عدد المقاعد: $e')));
+    }
+  }
+
+  Future<void> _moderate(BuildContext context, String targetId) async {
+    if (widget.roomId == null) return;
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: surface,
+      builder: (_) => SafeArea(child: Column(mainAxisSize: MainAxisSize.min, children: [
+        const Padding(padding: EdgeInsets.all(18), child: Text('إدارة المستخدم', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold))),
+        ListTile(leading: const Icon(Icons.volume_off), title: const Text('كتم'), onTap: () => Navigator.pop(context, 'mute')),
+        ListTile(leading: const Icon(Icons.volume_up), title: const Text('إلغاء الكتم'), onTap: () => Navigator.pop(context, 'unmute')),
+        ListTile(leading: const Icon(Icons.warning_amber), title: const Text('تحذير'), onTap: () => Navigator.pop(context, 'warn')),
+        ListTile(leading: const Icon(Icons.remove_circle_outline), title: const Text('إخراج من الغرفة'), onTap: () => Navigator.pop(context, 'kick')),
+        ListTile(leading: const Icon(Icons.block), title: const Text('حظر'), onTap: () => Navigator.pop(context, 'ban')),
+      ])),
+    );
+    if (action == null) return;
+    try {
+      await TajBackend.moderateUser(roomId: widget.roomId!, targetUserId: targetId, action: action);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم تنفيذ الإجراء')));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('ليس لديك صلاحية لهذا الإجراء: $e')));
+    }
+  }
+
   Future<void> _showGifts(BuildContext context) async {
     String? receiverId;
     if (widget.roomId != null) {
@@ -884,18 +950,21 @@ class _Seat extends StatelessWidget {
   final bool selected;
   final bool occupied;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
 
   const _Seat({
     required this.index,
     required this.selected,
     this.occupied = false,
     required this.onTap,
+    this.onLongPress,
   });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
+      onLongPress: onLongPress,
       child: Column(
         children: [
           Container(
