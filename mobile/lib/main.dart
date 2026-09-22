@@ -1199,6 +1199,38 @@ class _MomentCard extends StatelessWidget {
     ])),
   );
 }
+class SearchPage extends StatefulWidget {
+  const SearchPage({super.key});
+  @override State<SearchPage> createState() => _SearchPageState();
+}
+class _SearchPageState extends State<SearchPage> {
+  final c=TextEditingController();
+  List<Map<String,dynamic>> rows=[];
+  bool loading=false;
+  Future<void> go() async {
+    setState(()=>loading=true);
+    try { rows=await TajBackend.searchProfiles(c.text); }
+    catch (_) { rows=[]; }
+    if(mounted)setState(()=>loading=false);
+  }
+  @override Widget build(BuildContext context)=>Scaffold(
+    appBar: AppBar(title: const Text('البحث')),
+    body: Column(children:[
+      Padding(padding: const EdgeInsets.all(14), child: TextField(controller:c, textInputAction:TextInputAction.search, onSubmitted:(_)=>go(), decoration:InputDecoration(hintText:'اسم أو username أو ID', suffixIcon:IconButton(onPressed:go,icon:const Icon(Icons.search))))),
+      if(loading) const LinearProgressIndicator(color:gold),
+      Expanded(child:ListView.builder(itemCount:rows.length,itemBuilder:(_,i){final r=rows[i];return ListTile(leading:const CircleAvatar(child:Icon(Icons.person)),title:Text(r['display_name']?.toString()??'مستخدم'),subtitle:Text('@'+(r['username']?.toString()??'')+' • ID '+(r['public_id']?.toString()??'')));})),
+    ])
+  );
+}
+class VipPage extends StatefulWidget {
+  const VipPage({super.key});
+  @override State<VipPage> createState()=>_VipPageState();
+}
+class _VipPageState extends State<VipPage>{
+  late Future<List<Map<String,dynamic>>> f;
+  @override void initState(){super.initState();f=TajBackend.vipLevels();}
+  @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:const Text('VIP')),body:FutureBuilder<List<Map<String,dynamic>>>(future:f,builder:(c,s)=>ListView(children:(s.data??[]).map((r)=>Card(color:surface,child:ListTile(leading:const Icon(Icons.workspace_premium,color:gold),title:Text('VIP '+r['level'].toString()),subtitle:Text('XP: '+r['xp_required'].toString()))).toList())));
+}
 class CreatePage extends StatelessWidget {
   const CreatePage({super.key});
   @override
@@ -1285,55 +1317,50 @@ class MessagesPage extends StatelessWidget {
   }
 }
 
-class WalletPage extends StatelessWidget {
+class WalletPage extends StatefulWidget {
   const WalletPage({super.key});
+  @override State<WalletPage> createState() => _WalletPageState();
+}
+class _WalletPageState extends State<WalletPage> {
+  late Future<Map<String, dynamic>?> _wallet;
+  @override void initState() { super.initState(); _wallet = TajBackend.myWallet(); }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('المحفظة')),
-      body: ListView(
-        padding: const EdgeInsets.all(18),
-        children: [
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(25),
-              gradient: const LinearGradient(
-                colors: [Color(0xFF5C2097), Color(0xFF24102F)],
-              ),
-              border: Border.all(color: gold.withOpacity(.25)),
-            ),
-            child: const Column(
-              children: [
-                Text('رصيد العملات', style: TextStyle(color: Colors.white70)),
-                SizedBox(height: 7),
-                Text(
-                  '5,250 🪙',
-                  style: TextStyle(fontSize: 35, fontWeight: FontWeight.w900, color: goldSoft),
-                ),
-              ],
-            ),
+  Future<void> _topup(int amount) async {
+    try {
+      await TajBackend.client.from('wallet_topups').insert({'user_id': TajBackend.user?.id, 'amount': amount, 'status': 'pending'});
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم إنشاء طلب الشحن، وسيتم تحديث الرصيد بعد تأكيد الدفع')));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تعذر إنشاء طلب الشحن: $e')));
+    }
+  }
+
+  @override Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('المحفظة')),
+    body: FutureBuilder<Map<String, dynamic>?>(
+      future: _wallet,
+      builder: (context, s) {
+        final p = s.data ?? const <String,dynamic>{};
+        final coins = (p['coins'] as num?)?.toInt() ?? 0;
+        final diamonds = (p['diamonds'] as num?)?.toInt() ?? 0;
+        return ListView(padding: const EdgeInsets.all(18), children: [
+          Container(padding: const EdgeInsets.all(24), decoration: BoxDecoration(borderRadius: BorderRadius.circular(25), gradient: const LinearGradient(colors: [Color(0xFF5C2097), Color(0xFF24102F)]), border: Border.all(color: gold.withOpacity(.25))),
+            child: Column(children: [
+              const Text('رصيد العملات', style: TextStyle(color: Colors.white70)),
+              const SizedBox(height: 7),
+              Text('$coins 🪙', style: const TextStyle(fontSize: 35, fontWeight: FontWeight.w900, color: goldSoft)),
+              const SizedBox(height: 8),
+              Text('$diamonds 💎', style: const TextStyle(fontSize: 18, color: Colors.white70)),
+            ]),
           ),
           const SizedBox(height: 20),
-          ...['100 🪙', '550 🪙', '1,250 🪙', '2,750 🪙', '6,000 🪙'].map(
-            (x) => Card(
-              color: surface,
-              child: ListTile(
-                title: Text(x),
-                subtitle: const Text('باقة شحن'),
-                trailing: FilledButton(
-                  onPressed: () {},
-                  style: FilledButton.styleFrom(backgroundColor: royal),
-                  child: const Text('شراء'),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+          for (final x in [100,550,1250,2750,6000])
+            Card(color: surface, child: ListTile(title: Text('$x 🪙'), subtitle: const Text('طلب شحن'), trailing: FilledButton(onPressed: () => _topup(x), style: FilledButton.styleFrom(backgroundColor: royal), child: const Text('شراء')))),
+          const SizedBox(height: 15),
+          const Text('ملاحظة: الشحن الحقيقي يحتاج بوابة دفع وربط webhook قبل تحصيل أموال حقيقية.', style: TextStyle(color: Colors.white54)),
+        ]);
+      },
+    ),
+  );
 }
 
 class ProfilePage extends StatefulWidget {
