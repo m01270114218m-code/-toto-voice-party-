@@ -26,6 +26,8 @@ jobs:
           cache: true
       - name: Create Android project
         run: flutter create --platforms=android --project-name taj_live --org com.tajlive .
+      - name: Remove generated starter test
+        run: rm -f test/widget_test.dart
       - name: Dependencies
         run: flutter pub get
       - name: Analyze
