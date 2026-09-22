@@ -257,6 +257,10 @@ class TajBackend {
     return List<Map<String, dynamic>>.from(result);
   }
 
+  static Future<Map<String, dynamic>?> profileById(String id) async {
+    return client.from('profiles').select('id,display_name,username,public_id,avatar_url,level,vip_level').eq('id', id).maybeSingle();
+  }
+
   static Future<void> sendPrivateMessage(String recipientId, String body) async {
     final id = user?.id;
     final text = body.trim();
