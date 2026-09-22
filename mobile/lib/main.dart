@@ -384,51 +384,47 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
           ),
-          FutureBuilder<List<Map<String, dynamic>>>(
-                        future: _roomsFuture,
-                        builder: (context, snapshot) {
-                          if (snapshot.connectionState == ConnectionState.waiting) {
-                            return const Padding(
-                                padding: EdgeInsets.all(28),
-                                child: Center(child: CircularProgressIndicator(color: gold)),
-                              ),
-                            );
-                          }
-                          if (snapshot.hasError) {
-                            return Padding(
-                                padding: const EdgeInsets.all(20),
-                                child: Text(
-                                  'تعذر تحميل الغرف: ${snapshot.error}',
-                                  style: const TextStyle(color: Colors.white60),
-                                ),
-                              ),
-                            );
-                          }
-                          final rooms = snapshot.data ?? const <Map<String, dynamic>>[];
-                          if (rooms.isEmpty) {
-                            return const Padding(
-                                padding: EdgeInsets.all(28),
-                                child: Center(
-                                  child: Text('لا توجد غرف مباشرة الآن', style: TextStyle(color: Colors.white60)),
-                                ),
-                              ),
-                            );
-                          }
-                          return SliverList.builder(
-                            itemCount: rooms.length,
-                            itemBuilder: (context, index) {
-                              final room = rooms[index];
-                              final owner = room['profiles'] as Map<String, dynamic>?;
-                              return _RoomCard(
-                                name: room['name'] as String? ?? 'غرفة تاج لايف',
-                                listeners: '${room['viewer_count'] ?? 0}',
-                                roomId: room['id'] as String,
-                                ownerName: owner?['display_name'] as String?,
-                              );
-                            },
-                          );
-                        },
-                      ),
+          SliverToBoxAdapter(
+            child: FutureBuilder<List<Map<String, dynamic>>>(
+              future: _roomsFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Padding(
+                    padding: EdgeInsets.all(28),
+                    child: Center(child: CircularProgressIndicator(color: gold)),
+                  );
+                }
+                if (snapshot.hasError) {
+                  return Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Text(
+                      'تعذر تحميل الغرف: ${snapshot.error}',
+                      style: const TextStyle(color: Colors.white60),
+                    ),
+                  );
+                }
+                final rooms = snapshot.data ?? const <Map<String, dynamic>>[];
+                if (rooms.isEmpty) {
+                  return const Padding(
+                    padding: EdgeInsets.all(28),
+                    child: Center(
+                      child: Text('لا توجد غرف مباشرة الآن', style: TextStyle(color: Colors.white60)),
+                    ),
+                  );
+                }
+                return Column(
+                  children: rooms.map((room) {
+                    final owner = room['profiles'] as Map<String, dynamic>?;
+                    return _RoomCard(
+                      name: room['name'] as String? ?? 'غرفة تاج لايف',
+                      listeners: '${room['viewer_count'] ?? 0}',
+                      roomId: room['id'] as String,
+                      ownerName: owner?['display_name'] as String?,
+                    );
+                  }).toList(),
+                );
+              },
+            ),
           ),
           const SliverToBoxAdapter(child: SizedBox(height: 20)),
         ],
