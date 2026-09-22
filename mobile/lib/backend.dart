@@ -1,3 +1,4 @@
+export 'package:supabase_flutter/supabase_flutter.dart' show AuthState, AuthException;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 const tajSupabaseUrl = 'https://hgsfdkopbbwbtvsrbpoi.supabase.co';
