@@ -272,19 +272,31 @@ class _CreateRoomState extends State<CreateRoom>{
 
 class Moments extends StatelessWidget {
   const Moments({super.key});
-  @override Widget build(BuildContext context)=>Directionality(
-    textDirection:TextDirection.rtl,
-    child:Scaffold(
-      appBar:AppBar(title:const Text('اللحظات')),
-      body:Center(child:Padding(padding:const EdgeInsets.all(24),child:Column(mainAxisSize:MainAxisSize.min,children:[
-        const Icon(Icons.auto_awesome,color:gold,size:60),
-        const SizedBox(height:16),
-        const Text('لا توجد لحظات منشورة بعد',style:TextStyle(fontSize:20,fontWeight:FontWeight.w900,color:gold2)),
-        const SizedBox(height:8),
-        const Text('سيظهر المحتوى الحقيقي هنا بعد نشره من المستخدمين.',textAlign:TextAlign.center,style:TextStyle(color:Colors.white60)),
-      ])),
-    ),
-  );
+
+  @override
+  Widget build(BuildContext context) {
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        appBar: AppBar(title: const Text('اللحظات')),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: const [
+                Icon(Icons.auto_awesome, color: gold, size: 60),
+                SizedBox(height: 16),
+                Text('لا توجد لحظات منشورة بعد', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: gold2)),
+                SizedBox(height: 8),
+                Text('سيظهر المحتوى الحقيقي هنا بعد نشره من المستخدمين.', textAlign: TextAlign.center, style: TextStyle(color: Colors.white60)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class Messages extends StatelessWidget {
