@@ -1235,6 +1235,22 @@ class _VipPageState extends State<VipPage>{
   @override void initState(){super.initState();f=TajBackend.vipLevels();}
   @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:const Text('VIP')),body:FutureBuilder<List<Map<String,dynamic>>>(future:f,builder:(c,s)=>ListView(children:(s.data??[]).map((r)=>Card(color:surface,child:ListTile(leading:const Icon(Icons.workspace_premium,color:gold),title:Text('VIP '+r['level'].toString()),subtitle:Text('XP: '+r['xp_required'].toString()))).toList())));
 }
+class ProfileEditPage extends StatefulWidget {
+  const ProfileEditPage({super.key});
+  @override State<ProfileEditPage> createState()=>_ProfileEditPageState();
+}
+class _ProfileEditPageState extends State<ProfileEditPage>{
+  final name=TextEditingController(), username=TextEditingController(), bio=TextEditingController();
+  @override void initState(){super.initState();TajBackend.myProfile().then((p){if(p!=null){name.text=p['display_name']?.toString()??'';username.text=p['username']?.toString()??'';bio.text=p['bio']?.toString()??'';}if(mounted)setState((){});});}
+  Future<void> save() async {try{await TajBackend.updateProfile(displayName:name.text.trim(),username:username.text.trim(),bio:bio.text.trim());if(mounted){ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('تم الحفظ')));Navigator.pop(context);}}catch(e){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('تعذر الحفظ: $e')));}}
+  @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:const Text('تعديل الملف الشخصي')),body:ListView(padding:const EdgeInsets.all(18),children:[
+    TextField(controller:name,decoration:const InputDecoration(labelText:'الاسم')),const SizedBox(height:12),
+    TextField(controller:username,decoration:const InputDecoration(labelText:'اسم المستخدم')),const SizedBox(height:12),
+    TextField(controller:bio,maxLines:4,decoration:const InputDecoration(labelText:'نبذة')),const SizedBox(height:20),
+    FilledButton(onPressed:save,child:const Text('حفظ التغييرات'))
+  ]));
+}
+
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
   @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:const Text('الإعدادات')),body:ListView(children:[
