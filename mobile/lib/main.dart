@@ -1054,10 +1054,12 @@ class GiftSheet extends StatefulWidget {
 class _GiftSheetState extends State<GiftSheet> {
   late Future<List<Map<String, dynamic>>> _future;
   String? _sending;
-  @override void initState() { super.initState(); _future = TajBackend.gifts(); }
+  String? _selectedReceiver;
+  late Future<List<Map<String,dynamic>>> _seatsFuture;
+  @override void initState() { super.initState(); _future = TajBackend.gifts(); _selectedReceiver = widget.receiverId; _seatsFuture = widget.roomId == null ? Future.value(const <Map<String,dynamic>>[]) : TajBackend.roomSeats(widget.roomId!).first; }
 
   Future<void> _send(Map<String, dynamic> gift) async {
-    final receiver = widget.receiverId;
+    final receiver = _selectedReceiver;
     final room = widget.roomId;
     if (receiver == null || room == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('اختر متحدثًا على مقعد أولاً')));
@@ -1091,8 +1093,15 @@ class _GiftSheetState extends State<GiftSheet> {
           if (snapshot.hasError) return SizedBox(height: 220, child: Center(child: Text('تعذر تحميل الهدايا: ' + snapshot.error.toString())));
           final rows = snapshot.data ?? const <Map<String, dynamic>>[];
           if (rows.isEmpty) return const SizedBox(height: 220, child: Center(child: Text('لا توجد هدايا متاحة')));
-          return Column(mainAxisSize: MainAxisSize.min, children: [
+          return FutureBuilder<List<Map<String,dynamic>>>(future: _seatsFuture, builder: (context, seatsSnapshot) {
+            final seats = (seatsSnapshot.data ?? const <Map<String,dynamic>>[]).where((r) => r['user_id'] != null && r['user_id'].toString() != TajBackend.user?.id).toList();
+            return Column(mainAxisSize: MainAxisSize.min, children: [
             const Text('إرسال هدية', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+            if (widget.roomId != null) ...[
+              const SizedBox(height: 8), const Align(alignment: Alignment.centerRight, child: Text('اختر المستلم', style: TextStyle(color: gold))), const SizedBox(height: 6),
+              if (seats.isEmpty) const Text('لا يوجد متحدث آخر على المقاعد', style: TextStyle(color: Colors.white54))
+              else Wrap(spacing: 6, children: seats.map((seat) { final id=seat['user_id'].toString(); return ChoiceChip(label: Text('مقعد '+(seat['seat_number']?.toString()??'')), selected: id==_selectedReceiver, onSelected: (_) => setState(() => _selectedReceiver=id), selectedColor: royal); }).toList()),
+            ],
             const SizedBox(height: 14),
             GridView.builder(
               shrinkWrap: true,
@@ -1117,6 +1126,7 @@ class _GiftSheetState extends State<GiftSheet> {
               },
             ),
           ]);
+          });
         },
       ),
     ),
@@ -1340,43 +1350,17 @@ class AdminPage extends StatefulWidget {
   @override State<AdminPage> createState()=>_AdminPageState();
 }
 class _AdminPageState extends State<AdminPage>{
-  late Future<List<Map<String,dynamic>>> _reports;
-  late Future<List<Map<String,dynamic>>> _users;
-  @override void initState(){super.initState();_reports=TajBackend.adminReports();_users=TajBackend.adminUsers();}
-  Widget _list(
-  Future<List<Map<String, dynamic>>> future,
-  String title,
-  IconData icon,
-  String Function(Map<String, dynamic>) sub,
-) {
-  return FutureBuilder<List<Map<String, dynamic>>>(
-    future: future,
-    builder: (context, snapshot) {
-      final children = snapshot.connectionState == ConnectionState.waiting
-          ? <Widget>[const Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator())]
-          : (snapshot.data ?? const <Map<String, dynamic>>[])
-              .map((x) => ListTile(
-                    title: Text(sub(x)),
-                    subtitle: Text(x['id']?.toString() ?? ''),
-                  ))
-              .toList();
-      return Card(
-        color: surface,
-        child: ExpansionTile(
-          leading: Icon(icon, color: gold),
-          title: Text(title),
-          children: children,
-        ),
-      );
-    },
-  );
-}
+  late Future<List<Map<String,dynamic>>> reports; late Future<List<Map<String,dynamic>>> users;
+  @override void initState(){super.initState();reload();}
+  void reload(){reports=TajBackend.adminReports();users=TajBackend.adminUsers();}
+  Future<void> ban(String id,bool value) async {try{await TajBackend.adminSetUserBanned(id,value);if(mounted)setState(reload);}catch(e){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('تعذر الإجراء: '+e.toString())));}}
+  Future<void> resolve(String id,String status) async {try{await TajBackend.adminResolveReport(id,status);if(mounted)setState(reload);}catch(e){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('تعذر تحديث البلاغ: '+e.toString())));}}
   @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:const Text('لوحة الإدارة')),body:ListView(padding:const EdgeInsets.all(12),children:[
-    _list(_users,'المستخدمون',Icons.people,(x)=>x['display_name']?.toString() ?? 'مستخدم'),
-    _list(_reports,'البلاغات',Icons.report_problem,(x)=>x['reason']?.toString() ?? 'بلاغ'),
+    FutureBuilder<List<Map<String,dynamic>>>(future:users,builder:(c,s)=>Card(color:surface,child:ExpansionTile(leading:const Icon(Icons.people,color:gold),title:Text('المستخدمون ('+(s.data?.length??0).toString()+')'),children:(s.data??[]).map((x){final banned=x['is_banned']==true;return ListTile(title:Text(x['display_name']?.toString()??'مستخدم'),subtitle:Text('@'+(x['username']??'').toString()+' • ID '+(x['public_id']??'').toString()),trailing:IconButton(icon:Icon(banned?Icons.lock_open:Icons.block,color:banned?Colors.greenAccent:Colors.redAccent),onPressed:()=>ban(x['id'].toString(),!banned)));}).toList()))),
+    FutureBuilder<List<Map<String,dynamic>>>(future:reports,builder:(c,s)=>Card(color:surface,child:ExpansionTile(leading:const Icon(Icons.report_problem,color:gold),title:Text('البلاغات ('+(s.data?.length??0).toString()+')'),children:(s.data??[]).map((x)=>ListTile(title:Text(x['reason']?.toString()??'بلاغ'),subtitle:Text('الحالة: '+(x['status']??'open').toString()),trailing:PopupMenuButton<String>(onSelected:(v)=>resolve(x['id'].toString(),v),itemBuilder:(_)=>const[PopupMenuItem(value:'reviewing',child:Text('قيد المراجعة')),PopupMenuItem(value:'resolved',child:Text('تم الحل')),PopupMenuItem(value:'rejected',child:Text('مرفوض'))]))).toList()))),
+    ListTile(leading:const Icon(Icons.business,color:royal2),title:const Text('الوكالات'),onTap:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const AgencyPage()))),
   ]));
 }
-
 class CreatePage extends StatelessWidget {
   const CreatePage({super.key});
   @override
