@@ -1271,6 +1271,19 @@ class SettingsPage extends StatelessWidget {
   ]));
 }
 
+class GamesPage extends StatefulWidget {
+  const GamesPage({super.key});
+  @override State<GamesPage> createState()=>_GamesPageState();
+}
+class _GamesPageState extends State<GamesPage>{
+  bool loading=true; List<Map<String,dynamic>> games=[];
+  @override void initState(){super.initState();TajBackend.client.from('game_sessions').select().order('created_at',ascending:false).limit(30).then((r){games=List<Map<String,dynamic>>.from(r);if(mounted)setState(()=>loading=false);}).catchError((_){if(mounted)setState(()=>loading=false);});}
+  @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:const Text('الألعاب والأحداث')),body:loading?const Center(child:CircularProgressIndicator()):ListView(padding:const EdgeInsets.all(14),children:[
+    const Card(child:ListTile(leading:Icon(Icons.casino,color:gold),title:Text('الألعاب'),subtitle:Text('الألعاب المتاحة داخل الغرف تظهر هنا'))),
+    ...games.map((g)=>Card(color:surface,child:ListTile(leading:const Icon(Icons.emoji_events,color:gold),title:Text(g['game_type']?.toString()??'لعبة'),subtitle:Text('الحالة: ${g['status']??'active'}'))))
+  ]));
+}
+
 class CreatePage extends StatelessWidget {
   const CreatePage({super.key});
   @override
