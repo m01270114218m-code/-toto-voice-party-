@@ -18,7 +18,7 @@ async function load(){
 }
 const navItems=[['home','⌂','الرئيسية'],['discover','◈','اكتشاف'],['events','✦','الفعاليات'],['messages','✉','الرسائل'],['profile','◉','حسابي']];
 function nav(){return navItems.map(([v,i,t])=>'<button class="'+(S.view===v?'on':'')+'" onclick="go(\''+v+'\')"><span>'+i+'</span><small>'+t+'</small></button>').join('')+'<button class="create" onclick="createRoom()">＋</button>'}
-function render(){if($('coins'))$('coins').textContent=money(S.user?.coins);$('bottomNav').innerHTML=nav();const p={home,discover,events,messages,profile,wallet,notifications,vip,levels,tribes,agencies,games,settings,room:roomView};$('app').innerHTML=(p[S.view]||home)();bind3D()}
+function render(){if($('coins'))$('coins').textContent=money(S.user?.coins);$('bottomNav').innerHTML=nav();const p={home,discover,events,messages,profile,wallet,notifications,vip,levels,tribes,agencies,games,settings,room:roomView};$('app').innerHTML=menuPanel()+(p[S.view]||home)();bind3D()}
 function shell(title,kicker,body,action=''){return '<section class="page"><div class="pageHead"><div><span class="eyebrow">'+esc(kicker)+'</span><h1>'+esc(title)+'</h1></div>'+action+'</div>'+body+'</section>'}
 function home(){
  const featured=S.rooms.slice(0,6);
