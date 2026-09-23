@@ -52,6 +52,80 @@ jobs:
           p.write_text(s)
           PY
 
+
+      - name: Add native LiveKit Android SDK
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path("android/settings.gradle")
+          s=p.read_text()
+          if 'https://jitpack.io' not in s:
+              s=s.replace('repositories {', 'repositories {\n        maven { url = uri("https://jitpack.io") }', 1)
+          p.write_text(s)
+          p=Path("android/app/build.gradle")
+          s=p.read_text()
+          if 'io.livekit:livekit-android:2.29.0' not in s:
+              s=s.replace('dependencies {', 'dependencies {\n    implementation "io.livekit:livekit-android:2.29.0"', 1)
+          p.write_text(s)
+          PY
+
+      - name: Generate premium 3D visual asset pack
+        run: |
+          python3 -m pip install --disable-pip-version-check --quiet pillow
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image, ImageDraw, ImageFilter
+          import math, random
+          out=Path('android/app/src/main/assets/royal-assets'); out.mkdir(parents=True, exist_ok=True)
+          W=2048; H=2048
+          names=['home','login','discover','room','vip','levels','gifts','games','wallet','profile','messages','events','tribes','agencies','settings','notifications','leaderboard','store','friends','search','night','royal','palace','desert','oasis','neon','festival','lounge','crown','moon','stars','velvet']
+          for i,name in enumerate(names):
+              random.seed(9100+i)
+              im=Image.new('RGB',(W,H)); px=im.load()
+              c1=((8+i*3)%35, (5+i*2)%20, (25+i*5)%70)
+              c2=((45+i*4)%100, (8+i*3)%35, (85+i*7)%150)
+              for y in range(H):
+                  t=y/(H-1)
+                  for x in range(W):
+                      r=math.hypot(x-W*.5,y-H*.32)/W
+                      glow=max(0,1-r*1.65)
+                      n=random.randint(-3,3)
+                      px[x,y]=(max(0,int(c1[0]*(1-t)+c2[0]*t+glow*24+n)),max(0,int(c1[1]*(1-t)+c2[1]*t+glow*8+n)),max(0,int(c1[2]*(1-t)+c2[2]*t+glow*55+n)))
+              d=ImageDraw.Draw(im,'RGBA')
+              # Arabic-night ornamental geometry
+              for k in range(10):
+                  r=180+k*95+(i%5)*12
+                  box=(W//2-r,H//2-r,W//2+r,H//2+r)
+                  d.ellipse(box,outline=(245,198,91,35+k*2),width=5)
+              for a in range(0,360,30):
+                  ang=math.radians(a+(i%7)*3); x=W//2+700*math.cos(ang); y=H//2+700*math.sin(ang)
+                  d.ellipse((x-35,y-35,x+35,y+35),fill=(179,76,255,35),outline=(245,198,91,80),width=4)
+              for _ in range(140):
+                  x=random.randrange(W); y=random.randrange(H); s=random.choice([2,3,4,6,9])
+                  d.ellipse((x-s,y-s,x+s,y+s),fill=(255,255,255,random.randrange(25,100)))
+              im=im.filter(ImageFilter.GaussianBlur(0.25))
+              im.save(out/(name+'.png'),compress_level=3)
+          total=sum(p.stat().st_size for p in out.glob('*.png'))
+          print(f'Royal asset pack: {total/1024/1024:.1f} MiB')
+          if total < 55*1024*1024:
+              raise SystemExit('Asset pack is below the 55 MiB target')
+          PY
+
+      - name: Initialize native LiveKit runtime
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          pkg=Path('android/app/src/main/java/com/royalvoice/app')
+          pkg.mkdir(parents=True,exist_ok=True)
+          (pkg/'RoyalVoiceNative.java').write_text('''package com.royalvoice.app;\n\nimport android.content.Context;\nimport io.livekit.android.LiveKit;\n\npublic final class RoyalVoiceNative {\n  private RoyalVoiceNative() {}\n  public static void init(Context context) { LiveKit.init(context.getApplicationContext()); }\n}\n''')
+          p=Path('android/app/src/main/java/com/royalvoice/app/MainActivity.java')
+          if p.exists():
+              s=p.read_text()
+              if 'RoyalVoiceNative.init' not in s:
+                  s=s.replace('public class MainActivity extends BridgeActivity {','public class MainActivity extends BridgeActivity {\n    @Override\n    public void onCreate(android.os.Bundle savedInstanceState) {\n        super.onCreate(savedInstanceState);\n        RoyalVoiceNative.init(this);\n    }')
+                  p.write_text(s)
+          PY
+
       - name: Sync Capacitor Android
         run: npx cap sync android
 
