@@ -1,0 +1,12 @@
+[
+ {"id":"trending","name":"الرائجة","icon":"🔥","sort":1,"active":true},
+ {"id":"following","name":"أتابعها","icon":"💜","sort":2,"active":true},
+ {"id":"parties","name":"حفلات","icon":"🎉","sort":3,"active":true},
+ {"id":"games","name":"ألعاب ومسابقات","icon":"🎮","sort":4,"active":true},
+ {"id":"music","name":"موسيقى","icon":"🎵","sort":5,"active":true},
+ {"id":"respectful-dating","name":"تعارف محترم","icon":"✨","sort":6,"active":true},
+ {"id":"public-chat","name":"دردشة عامة","icon":"💬","sort":7,"active":true},
+ {"id":"vip","name":"غرف VIP","icon":"👑","sort":8,"active":true},
+ {"id":"tribes","name":"غرف القبائل","icon":"🛡️","sort":9,"active":true},
+ {"id":"agencies","name":"غرف الوكالات","icon":"🏢","sort":10,"active":true}
+]

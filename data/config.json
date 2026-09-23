@@ -1,0 +1,6 @@
+{
+  "appName":"Royal Voice","version":"4.2.0-full-clean","tagline":"صوتك... عالمك","heroBadge":"تجربة اجتماعية صوتية متكاملة","heroTitle":"ادخل عالماً من الصوت والضوء","heroText":"غرف صوتية مباشرة، هدايا، فعاليات، مستويات، VIP، قبائل ووكالات مع إدارة مركزية.","defaultCountry":"EG","supportedCountries":["EG","SA","AE","IQ","MA","DZ","JO","QA","KW"],"currencies":["coins","diamonds"],"roomSeatCount":8,
+  "theme":{"accent":"#8b5cf6","accent2":"#ec4899","cyan":"#22d3ee","gold":"#f6c86d"},
+  "features":{"voiceRooms":true,"liveKit":true,"chat":true,"gifts":true,"posts":true,"directMessages":true,"wallet":true,"vip":true,"levels":true,"tribes":true,"agencies":true,"events":true,"games":true,"search":true,"moderation":true,"cms":true},
+  "legal":{"privacyPath":"/privacy","termsPath":"/terms","communityGuidelinesPath":"/community-guidelines"}
+}
