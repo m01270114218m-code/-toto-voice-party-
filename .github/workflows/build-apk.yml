@@ -53,6 +53,11 @@ jobs:
           PY
 
 
+      - name: Install native media build tools
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y ffmpeg
+
       - name: Add native LiveKit Android SDK
         run: |
           python3 - <<'PY'
@@ -73,8 +78,14 @@ jobs:
               s=s.replace('dependencies {', 'dependencies {\n    implementation "io.livekit:livekit-android:2.29.0"', 1)
           if 'androidx.multidex:multidex:2.0.1' not in s:
               s=s.replace('dependencies {', 'dependencies {\n    implementation "androidx.multidex:multidex:2.0.1"', 1)
+          # Enable multidex inside the generated module's existing defaultConfig.
+          # Do not create a second defaultConfig block: AGP expects one module configuration.
           if 'multiDexEnabled true' not in s:
-              s=s.replace('android {', 'android {\n    defaultConfig {\n        multiDexEnabled true\n    }', 1)
+              marker='defaultConfig {'
+              if marker in s:
+                  s=s.replace(marker, marker+'\n        multiDexEnabled true', 1)
+              else:
+                  raise SystemExit('Generated android/app/build.gradle has no defaultConfig block')
           p.write_text(s)
           PY
 
