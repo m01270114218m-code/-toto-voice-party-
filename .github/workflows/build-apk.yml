@@ -71,6 +71,10 @@ jobs:
           s=p.read_text()
           if 'io.livekit:livekit-android:2.29.0' not in s:
               s=s.replace('dependencies {', 'dependencies {\n    implementation "io.livekit:livekit-android:2.29.0"', 1)
+          if 'androidx.multidex:multidex:2.0.1' not in s:
+              s=s.replace('dependencies {', 'dependencies {\n    implementation "androidx.multidex:multidex:2.0.1"', 1)
+          if 'multiDexEnabled true' not in s:
+              s=s.replace('android {', 'android {\n    defaultConfig {\n        multiDexEnabled true\n    }', 1)
           p.write_text(s)
           PY
 
@@ -163,8 +167,30 @@ jobs:
         working-directory: android
         run: ./gradlew assembleDebug --no-daemon --stacktrace
 
-      - name: Verify APK exists
-        run: test -s android/app/build/outputs/apk/debug/app-debug.apk
+      - name: Verify APK exists and inspect Android internals
+        run: |
+          test -s android/app/build/outputs/apk/debug/app-debug.apk
+          mkdir -p apk-inspection
+          unzip -l android/app/build/outputs/apk/debug/app-debug.apk > apk-inspection/apk-files.txt
+          unzip -qq android/app/build/outputs/apk/debug/app-debug.apk 'classes*.dex' -d apk-inspection/dex
+          echo "DEX files:"
+          find apk-inspection/dex -type f -name 'classes*.dex' -printf '%f\n' | sort
+          echo "DEX count: $(find apk-inspection/dex -type f -name 'classes*.dex' | wc -l)"
+          echo "APK size bytes: $(stat -c%s android/app/build/outputs/apk/debug/app-debug.apk)"
+          echo "APK size MiB: $(du -m android/app/build/outputs/apk/debug/app-debug.apk | cut -f1)"
+          echo "Asset count: $(find android/app/src/main/assets -type f | wc -l)"
+          echo "Resource count: $(find android/app/src/main/res -type f | wc -l)"
+          test -d apk-inspection/dex
+          if [ "$(find apk-inspection/dex -type f -name 'classes*.dex' | wc -l)" -lt 2 ]; then
+            echo "NOTE: multidex is enabled, but D8 did not need a second DEX for this build."
+          fi
+
+      - name: Upload APK inspection
+        uses: actions/upload-artifact@v4
+        with:
+          name: royal-voice-apk-inspection
+          path: apk-inspection
+          if-no-files-found: error
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
