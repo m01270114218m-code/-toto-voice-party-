@@ -12,7 +12,7 @@ function token(payload){return Buffer.from(JSON.stringify(payload)).toString('ba
 function admin(req){
  const supplied=(req.headers.authorization||'').replace('Bearer ','');
  const expected=token({sub:'admin',role:'admin',v:1});
- return !!supplied && crypto.timingSafeEqual(Buffer.from(supplied),Buffer.from(expected));
+ return supplied.length===expected.length && crypto.timingSafeEqual(Buffer.from(supplied),Buffer.from(expected));
 }
 function localUser(req){
  const t=(req.headers.authorization||'').replace('Bearer ','');if(!t)return null;
@@ -21,7 +21,7 @@ function localUser(req){
   const p=JSON.parse(Buffer.from(parts[0],'base64url'));
   if(p.exp&&p.exp<Date.now())return null;
   const expected=crypto.createHash('sha256').update(JSON.stringify(p)+(process.env.AUTH_SECRET||'dev-secret')).digest('hex');
-  if(!crypto.timingSafeEqual(Buffer.from(parts[1]),Buffer.from(expected)))return null;
+  if(parts[1].length!==expected.length||!crypto.timingSafeEqual(Buffer.from(parts[1]),Buffer.from(expected)))return null;
   return p;
  }catch{return null}
 }
