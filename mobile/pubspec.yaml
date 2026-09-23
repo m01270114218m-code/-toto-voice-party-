@@ -1,24 +1,22 @@
 name: taj_live
-description: تاج لايف - Arabic social voice rooms
-publish_to: "none"
+description: "Taj Live - copied SUF-Chat voice chat app."
+publish_to: 'none'
+
 version: 1.0.0+1
 
 environment:
-  sdk: ">=3.5.0 <4.0.0"
+  sdk: '>=3.0.0 <4.0.0'
 
 dependencies:
   flutter:
     sdk: flutter
-  cupertino_icons: ^1.0.8
-  shared_preferences: ^2.5.3
-  supabase_flutter: ^2.10.0
-  livekit_client: ^2.13.0
-  url_launcher: ^6.3.2
+  socket_io_client: ^2.0.3
+  cupertino_icons: ^1.0.2
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^5.0.0
+  flutter_linter: ^4.0.0
 
 flutter:
   uses-material-design: true
