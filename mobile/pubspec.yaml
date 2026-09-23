@@ -9,9 +9,6 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  cupertino_icons: ^1.0.8
-  shared_preferences: ^2.5.3
-  socket_io_client: ^2.0.3
 
 dev_dependencies:
   flutter_test:
