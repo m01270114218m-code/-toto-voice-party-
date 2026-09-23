@@ -1,0 +1,11 @@
+{
+  "name":"royal-voice-professional",
+  "version":"4.0.0-livekit",
+  "private":true,
+  "description":"Royal Voice real-time social voice platform with Supabase, LiveKit and Capacitor Android build",
+  "main":"server.js",
+  "scripts":{"start":"node server.js","dev":"node --watch server.js","android:add":"npx cap add android","android:sync":"npx cap sync android","android:open":"npx cap open android","android:build":"npx cap sync android && cd android && ./gradlew assembleDebug","android:release":"npx cap sync android && cd android && ./gradlew assembleRelease"},
+  "dependencies":{"socket.io":"^4.8.1","@capacitor/core":"^7.4.3"},
+  "devDependencies":{"@capacitor/cli":"^7.4.3","@capacitor/android":"^7.4.3"},
+  "engines":{"node":">=20"}
+}
