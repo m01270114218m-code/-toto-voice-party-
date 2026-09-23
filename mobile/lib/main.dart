@@ -1,3 +1,9 @@
+import 'package:flutter/material.dart';
+
 import 'app/app.dart';
 
-void main() { runApp(const Mt2App()); }
+export 'app/app.dart';
+
+void main() {
+  runApp(const Mt2App());
+}
