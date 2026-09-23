@@ -1,37 +1,34 @@
-# MT2 Voice Party
+# Royal Voice
 
-Clean Flutter voice-party application rebuilt from scratch around the MT2 visual/resource structure.
+Royal Voice LiveKit build: Supabase + LiveKit + Capacitor Android.
 
-## Project layout
-
-- `mobile/lib/main.dart` — clean MT2-oriented UI foundation.
-- `mobile/assets/mt2/` — MT2 resources are imported here when available.
-- `mobile/tool/import_mt2_assets.sh` — imports `assets/` and `res/` from the supplied MT2 archive.
-- `mobile/tool/configure_android.sh` — adds the Android permissions required for a voice-party app.
-- `mobile/tool/bootstrap_flutter.sh` — creates the standard Android platform files for a clean checkout.
-- `.github/workflows/build-apk.yml` — bootstraps, analyzes, tests, and builds the release APK.
-
-## MT2 resources
-
-The source MT2 archive is not committed as one large binary. Use:
-
+## Run
 ```bash
-cd mobile
-bash tool/import_mt2_assets.sh /path/to/MT2.zip
+npm install
+npm start
+```
+Open `http://localhost:3000`.
+
+## Android
+```bash
+npm install
+npx cap sync android
+npx cap open android
+```
+Debug APK:
+```bash
+npx cap sync android
+cd android
+./gradlew assembleDebug
 ```
 
-The importer preserves the archive's `assets/` and `res/` structure under `mobile/assets/mt2/`.
+## LiveKit
+The client requests temporary tokens from the Supabase `livekit-token` Edge Function and connects to the real LiveKit room. Keep `LIVEKIT_API_SECRET` only in Supabase Edge Function Secrets; never commit it.
 
-## Local setup
+## Supabase
+Auth, profiles, rooms, seats/roles, messages, gifts, wallet and manual top-up are supported. Paymob is not used by the active manual charging flow.
 
-From `mobile/`:
+## APK backend
+Set `ROYAL_API_BASE` in `public/mobile-config.js` to the public HTTPS Node/Socket.IO backend before building. Do not use localhost in the APK.
 
-```bash
-bash tool/bootstrap_flutter.sh
-flutter pub get
-flutter analyze
-flutter test
-flutter run
-```
-
-The repository intentionally contains no legacy backend, migrations, or previous application implementation.
+The full local build is available as the Royal Voice LiveKit ZIP prepared in this chat.
