@@ -1,8 +1,7 @@
 name: taj_live
-description: "Taj Live - copied SUF-Chat voice chat app."
+description: "Taj Live - MT2-inspired voice party UI with existing backend services."
 publish_to: 'none'
-
-version: 1.0.0+1
+version: 1.0.0+2
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
