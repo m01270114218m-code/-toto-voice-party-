@@ -11,7 +11,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
+          # No npm cache: repository has no lockfile.
       - run: npm install
       - uses: android-actions/setup-android@v3
       - run: npm run android:add
