@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
 import '../screens/myninja_design_screen.dart';
 
 class Mt2App extends StatelessWidget {
@@ -8,8 +7,8 @@ class Mt2App extends StatelessWidget {
   @override
   Widget build(BuildContext context) => MaterialApp(
         debugShowCheckedModeBanner: false,
-        title: 'MT2 Voice Party',
-        theme: AppTheme.dark,
+        title: 'صوت يجمعنا',
+        theme: ThemeData.dark(useMaterial3: true),
         home: const Mt2DesignScreen(),
       );
 }
