@@ -1,9 +1,40 @@
 let socket={emit(){},on(){return this}};try{if(typeof io==='function')socket=io({reconnection:true,reconnectionAttempts:8})}catch{}
-const API=location.origin,SUPA=window.ROYAL_SUPABASE_URL,KEY=window.ROYAL_SUPABASE_PUBLISHABLE_KEY,$=id=>document.getElementById(id);
+const API=(window.ROYAL_API_BASE||location.origin).replace(/\/$/,''),SUPA=window.ROYAL_SUPABASE_URL,KEY=window.ROYAL_SUPABASE_PUBLISHABLE_KEY,$=id=>document.getElementById(id);
 const S={config:{},content:{},rooms:[],gifts:[],categories:[],events:[],users:[],user:null,view:'home',room:null,presence:[],messages:[],token:localStorage.getItem('royal_access_token')||'',lk:null,mic:false};
 const esc=x=>String(x??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])),money=n=>new Intl.NumberFormat('ar-EG').format(Number(n)||0);
-async function api(p,o={}){const h={'Content-Type':'application/json',...(o.headers||{})};if(S.token)h.Authorization='Bearer '+S.token;const r=await fetch(API+'/api/'+p,{...o,headers:h});return r.json()}
-async function load(){for(const k of ['config','content','rooms','gifts','categories','events','users'])try{S[k]=await api(k)}catch{}S.user=S.user||S.users[0]||{id:'guest',name:'ضيف',username:'guest',coins:0,diamonds:0,level:1};$('appName').textContent=S.config.appName||'ROYAL VOICE';$('tagline').textContent=S.config.tagline||'صوتك... عالمك';render()}
+async function api(p,o={}){
+ const h={'Content-Type':'application/json',...(o.headers||{})};
+ if(S.token)h.Authorization='Bearer '+S.token;
+ const url=API+'/api/'+p;
+ try{
+  const r=await fetch(url,{...o,headers:h});
+  const d=await r.json().catch(()=>({ok:false,error:'invalid_json'}));
+  if(!r.ok)throw Error(d.error||('http_'+r.status));
+  return d;
+ }catch(e){
+  if((o.method||'GET').toUpperCase()==='GET'){
+   const local=['config','content','rooms','gifts','categories','events','users','notifications','follows','messages'];
+   const key=String(p).split('/')[0];
+   if(local.includes(key)){
+    const rr=await fetch('/data/'+key+'.json');
+    if(rr.ok)return rr.json();
+   }
+  }
+  throw e;
+ }
+}
+async function load(){
+ for(const k of ['config','content','rooms','gifts','categories','events','users'])try{
+  const v=await api(k);
+  if(Array.isArray(v)||v&&typeof v==='object')S[k]=v;
+ }catch(e){console.warn('load '+k,e)}
+ if(!Array.isArray(S.rooms))S.rooms=[];
+ if(!Array.isArray(S.gifts))S.gifts=[];
+ if(!Array.isArray(S.categories))S.categories=[];
+ if(!Array.isArray(S.events))S.events=[];
+ if(!Array.isArray(S.users))S.users=[];
+ S.user=S.user||S.users[0]||{id:'guest',name:'ضيف',username:'guest',coins:0,diamonds:0,level:1};
+$('appName').textContent=S.config.appName||'ROYAL VOICE';$('tagline').textContent=S.config.tagline||'صوتك... عالمك';render()}
 function nav(){return '<button class="'+(S.view==='home'?'on':'')+'" onclick="go(\'home\')">⌂<span>الرئيسية</span></button><button class="'+(S.view==='discover'?'on':'')+'" onclick="go(\'discover\')">◈<span>اكتشاف</span></button><button class="create" onclick="createRoom()">＋</button><button class="'+(S.view==='events'?'on':'')+'" onclick="go(\'events\')">✦<span>فعاليات</span></button><button class="'+(S.view==='profile'?'on':'')+'" onclick="go(\'profile\')">◉<span>حسابي</span></button>'}
 function render(){if($('coins'))$('coins').textContent=money(S.user.coins);$('bottomNav').innerHTML=nav();const p={home,discover,events,profile,wallet,messages,settings,room:roomView};$('app').innerHTML=(p[S.view]||home)();bind3D()}
 function home(){return `<section class="hero"><div class="heroCopy"><span class="eyebrow">✦ ${esc(S.config.heroBadge||'تجربة اجتماعية صوتية متكاملة')}</span><h1>${esc(S.content.heroTitle||S.content.hero?.title||'ادخل عالماً من الصوت والضوء')}</h1><p>${esc(S.content.heroText||S.content.hero?.text||'غرف صوتية مباشرة، هدايا وفعاليات وأصدقاء.')}</p><div class="heroBtns"><button class="primary" onclick="go('discover')">اكتشف الغرف ↗</button><button class="glass" onclick="go('events')">الفعاليات اليوم</button></div></div><div class="heroOrb"><div class="orbCore">♛</div><span></span><span></span><span></span></div></section><div class="sectionHead"><div><span class="eyebrow">LIVE NOW</span><h2>الغرف النابضة</h2></div><button onclick="go('discover')">عرض الكل ←</button></div><div class="chips">${S.categories.map(c=>'<button class="chip" onclick="go(\'discover\')">'+esc(c.icon||'✦')+' '+esc(c.name)+'</button>').join('')}</div><div class="roomGrid">${S.rooms.slice(0,6).map(roomCard).join('')}</div><section class="featureStrip"><div class="feature3d"><b>♢</b><span>هدايا سينمائية</span><small>مؤثرات متحركة</small></div><div class="feature3d"><b>♙</b><span>VIP متطور</span><small>إطارات وشارات</small></div><div class="feature3d"><b>⚡</b><span>فعاليات حية</span><small>مهام ومكافآت</small></div></section>`}
@@ -19,18 +50,42 @@ function seat(i){const p=S.presence[i];return `<button class="seat ${p?'filled':
 async function openRoom(id){S.room=S.rooms.find(r=>r.id===id)||S.rooms[0];if(!S.room)return;S.view='room';S.presence=[];S.messages=[];socket.emit('room:join',{roomId:S.room.id,user:{id:S.user.id,name:S.user.name,vip:S.user.vip}});render();if(S.token)connectLiveKit();else toast('سجّل الدخول لتفعيل الصوت الحقيقي')}
 async function leaveRoom(){if(S.lk){try{await S.lk.disconnect(true)}catch{}S.lk=null;S.mic=false}$('livekitAudio').innerHTML='';if(S.room)socket.emit('room:leave',S.room.id);S.room=null;go('home')}
 function sendMsg(){const e=$('msgInput');if(!e?.value.trim())return;socket.emit('room:message',{roomId:S.room.id,message:{name:S.user.name,text:e.value.trim()}});e.value=''}
-async function requestSeat(){if(!S.token){toast('سجّل الدخول أولاً');return false}for(let seat=0;seat<8;seat++){const r=await api('connected/seat/assign',{method:'POST',body:JSON.stringify({roomId:S.room.id,seat})}).catch(()=>({}));if(r.ok){socket.emit('room:seat',{roomId:S.room.id,userId:S.user.id,seat,action:'assigned'});toast('تم حجز المقعد '+(seat+1));return true}}toast('لا يوجد مقعد متاح');return false}
+async function requestSeat(){
+ if(!S.room){return false}
+ if(!S.token){
+  const seat=S.presence.findIndex((x,i)=>!x);
+  if(seat>=0){S.presence[seat]={id:S.user.id,name:S.user.name,vip:S.user.vip};render();toast('تم حجز المقعد محلياً — سجّل الدخول للصوت الحقيقي');return true}
+  toast('لا يوجد مقعد متاح');return false
+ }
+ for(let seat=0;seat<8;seat++){
+  const r=await api('connected/seat/assign',{method:'POST',body:JSON.stringify({roomId:S.room.id,seat})}).catch(()=>({}));
+  if(r.ok){socket.emit('room:seat',{roomId:S.room.id,userId:S.user.id,seat,action:'assigned'});toast('تم حجز المقعد '+(seat+1));return true}
+ }
+ toast('لا يوجد مقعد متاح');return false
+}
 function seatAction(i){if(!S.presence[i])requestSeat();else toast('تم فتح ملف المستخدم')}
 function openGifts(){showModal('<div class="modalTitle"><h2>متجر الهدايا</h2><button onclick="closeModal()">×</button></div><div class="giftGrid">'+S.gifts.map(g=>'<button class="giftItem" onclick="sendGift(\''+g.id+'\')"><span class="gift3d">'+esc(g.icon||'🎁')+'</span><b>'+esc(g.name)+'</b><small>◆ '+money(g.price)+'</small></button>').join('')+'</div>')}
 async function sendGift(id){const g=S.gifts.find(x=>x.id===id);if(!g)return;const r=await api('connected/gift/send',{method:'POST',body:JSON.stringify({receiverId:S.room.ownerId||S.user.id,giftId:id,quantity:1,roomId:S.room.id})}).catch(()=>({}));if(r.ok){S.user.coins=Math.max(0,S.user.coins-Number(r.total||g.price));socket.emit('room:gift',{roomId:S.room.id,gift:g,from:S.user.name});closeModal();render();toast('✨ تم إرسال '+g.name)}else toast('تعذر إرسال الهدية')}
 function createRoom(){showModal('<div class="modalTitle"><h2>إنشاء غرفة</h2><button onclick="closeModal()">×</button></div><div class="form"><input id="newRoom" placeholder="اسم الغرفة"><textarea id="newDesc" placeholder="وصف الغرفة"></textarea><select id="newCat">'+S.categories.map(c=>'<option value="'+esc(c.id)+'">'+esc(c.name)+'</option>').join('')+'</select><button class="primary" onclick="saveRoom()">إنشاء الغرفة</button></div>')}
-async function saveRoom(){const r=await api('room/create',{method:'POST',body:JSON.stringify({name:$('newRoom').value.trim()||'غرفة جديدة',description:$('newDesc').value,category:$('newCat').value})}).catch(()=>({}));if(!r.ok){toast('تعذر إنشاء الغرفة');return}closeModal();await load();openRoom(r.room.id)}
+async function saveRoom(){
+ const payload={name:$('newRoom').value.trim()||'غرفة جديدة',description:$('newDesc').value,category:$('newCat').value};
+ let r=await api('room/create',{method:'POST',body:JSON.stringify(payload)}).catch(()=>null);
+ if(!r?.ok){
+  const room={id:'LOCAL-'+Date.now(),name:payload.name,description:payload.description,owner:S.user.name||'ضيف',ownerId:S.user.id,country:'مصر',category:payload.category,online:1,live:true,level:1,gifts:0,hue:250,announcement:'أهلاً بالجميع ✨'};
+  S.rooms.unshift(room);r={ok:true,room};toast('تم إنشاء الغرفة محلياً — اربط الخادم للحفظ الدائم');
+ }
+ closeModal();render();openRoom(r.room.id)
+}
 function openSearch(){showModal('<div class="modalTitle"><h2>البحث</h2><button onclick="closeModal()">×</button></div><input class="searchInput" autofocus placeholder="ابحث عن غرفة أو مستخدم" oninput="searchAll(this.value)"><div id="searchResults"></div>')}
 function searchAll(q){const a=S.rooms.filter(x=>(x.name||'').includes(q)).concat(S.users.filter(x=>(x.name||'').includes(q)));$('searchResults').innerHTML=a.length?a.map(x=>'<button class="searchResult" onclick="selectSearch(\''+x.id+'\')"><span>◈</span><b>'+esc(x.name||x.username)+'</b><small>'+esc(x.id)+'</small></button>').join(''):'<p class="muted">لا توجد نتائج</p>'}
 function selectSearch(id){closeModal();if(String(id).startsWith('R'))openRoom(id);else go('profile')}
 function openTopup(){showModal('<div class="modalTitle"><h2>الشحن اليدوي</h2><button onclick="closeModal()">×</button></div><div class="form"><p class="muted">طرق الشحن تُدار من لوحة الإدارة.</p><input id="topupAmount" type="number" placeholder="المبلغ"><input id="topupRef" placeholder="رقم العملية"><button class="primary" onclick="toast('أكمل تسجيل الدخول ثم أرسل الطلب')">إرسال</button></div>')}
-function showModal(h){$('modalCard').innerHTML=h;$('modal').classList.remove('hidden')}function closeModal(){$('modal').classList.add('hidden')}function go(v){S.view=v;render()}function toast(t){const e=$('toast');e.textContent=t;e.className='show';setTimeout(()=>e.className='',2200)}function shareRoom(){navigator.clipboard?.writeText(location.href);toast('تم نسخ الرابط')}
+function showModal(h){$('modalCard').innerHTML=h;$('modal').classList.remove('hidden')}function closeModal(){$('modal').classList.add('hidden')}function go(v){S.view=v;render()}function toast(t){const e=$('toast');e.textContent=t;e.className='show';setTimeout(()=>e.className='',2200)}async function shareRoom(){
+ const url=location.href;
+ try{if(navigator.share)await navigator.share({title:S.room?.name||'Royal Voice',url});else if(navigator.clipboard)await navigator.clipboard.writeText(url);else throw Error('clipboard_unavailable');toast('تم مشاركة الرابط')}
+ catch{toast('تم إلغاء المشاركة')}
+}
 function bind3D(){document.querySelectorAll('.tilt').forEach(el=>{el.onpointerleave=()=>el.style.transform=''})}
 async function connectLiveKit(){if(!S.room||!S.token||S.lk||!window.LivekitClient)return;try{const r=await fetch(SUPA+'/functions/v1/livekit-token',{method:'POST',headers:{apikey:KEY,Authorization:'Bearer '+S.token,'Content-Type':'application/json'},body:JSON.stringify({room_name:String(S.room.id),participant_name:S.user.name||S.user.username||S.user.id})});const d=await r.json();if(!r.ok)throw Error(d.error||'token_failed');const room=new LivekitClient.Room({adaptiveStream:true,dynacast:true});S.lk=room;room.on(LivekitClient.RoomEvent.TrackSubscribed,(t)=>{if(t.kind===LivekitClient.Track.Kind.Audio){const e=t.attach();e.autoplay=true;$('livekitAudio').appendChild(e)}});await room.connect(d.server_url,d.participant_token);toast(d.can_publish?'تم الاتصال بالصوت الحقيقي':'تم الدخول للاستماع');render()}catch(e){console.warn(e);toast('تعذر الاتصال بالصوت')}}
 async function muteLocal(){if(!S.lk){toast('الصوت غير متصل');return}try{if(!S.mic){if(!await requestSeat())return;await S.lk.localParticipant.setMicrophoneEnabled(true)}else await S.lk.localParticipant.setMicrophoneEnabled(false);S.mic=!S.mic;toast(S.mic?'🎙 الميكروفون يعمل':'🔇 تم الكتم');render()}catch{toast('تحقق من صلاحية الميكروفون')}}
-socket.on('room:presence',p=>{S.presence=p;if(S.view==='room')render()});socket.on('room:message',m=>{S.messages.push(m);if(S.view==='room')render()});socket.on('room:gift',p=>toast('🎁 '+p.from+' أرسل '+p.gift.name));socket.on('cms:update',load);load();
+socket.on('room:presence',p=>{S.presence=Array.isArray(p)?p:[];if(S.view==='room')render()});socket.on('room:message',m=>{S.messages.push(m);if(S.view==='room')render()});socket.on('room:gift',p=>toast('🎁 '+p.from+' أرسل '+p.gift.name));socket.on('cms:update',load);load();
