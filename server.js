@@ -9,10 +9,24 @@ function write(n,v){fs.writeFileSync(path.join(dataDir,n),JSON.stringify(v,null,
 function json(res,status,obj){res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','Access-Control-Allow-Origin':process.env.CORS_ORIGIN||'*','Access-Control-Allow-Headers':'Content-Type, Authorization','Access-Control-Allow-Methods':'GET,POST,OPTIONS'});res.end(JSON.stringify(obj))}
 function body(req){return new Promise((resolve,reject)=>{let s='';req.on('data',c=>{s+=c;if(s.length>2e6)reject(Error('body_too_large'))});req.on('end',()=>{try{resolve(s?JSON.parse(s):{})}catch(e){reject(e)}})})}
 function token(payload){return Buffer.from(JSON.stringify(payload)).toString('base64url')+'.'+crypto.createHash('sha256').update(JSON.stringify(payload)+(process.env.AUTH_SECRET||'dev-secret')).digest('hex')}
-function admin(req){return (req.headers.authorization||'').replace('Bearer ','')===token({sub:'admin',role:'admin',v:1})}
-function localUser(req){const t=(req.headers.authorization||'').replace('Bearer ','');if(!t)return null;try{const p=JSON.parse(Buffer.from(t.split('.')[0],'base64url'));if(p.exp&&p.exp<Date.now())return null;return p}catch{return null}}
+function admin(req){
+ const supplied=(req.headers.authorization||'').replace('Bearer ','');
+ const expected=token({sub:'admin',role:'admin',v:1});
+ return !!supplied && crypto.timingSafeEqual(Buffer.from(supplied),Buffer.from(expected));
+}
+function localUser(req){
+ const t=(req.headers.authorization||'').replace('Bearer ','');if(!t)return null;
+ try{
+  const parts=t.split('.');if(parts.length!==2)return null;
+  const p=JSON.parse(Buffer.from(parts[0],'base64url'));
+  if(p.exp&&p.exp<Date.now())return null;
+  const expected=crypto.createHash('sha256').update(JSON.stringify(p)+(process.env.AUTH_SECRET||'dev-secret')).digest('hex');
+  if(!crypto.timingSafeEqual(Buffer.from(parts[1]),Buffer.from(expected)))return null;
+  return p;
+ }catch{return null}
+}
 function limited(key,max,window){const now=Date.now(),a=state.rate.get(key)||[];const b=a.filter(x=>x>now-window);if(b.length>=max)return false;b.push(now);state.rate.set(key,b);return true}
-const mime={'.html':'text/html; charset=utf-8','.js':'application/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json; charset=utf-8','.webmanifest':'application/manifest+json','.svg':'image/svg+xml'};
+const mime={'.html':'text/html; charset=utf-8','.js':'application/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json; charset=utf-8','.webmanifest':'application/manifest+json','.svg':'image/svg+xml','.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.webp':'image/webp'};
 const server=http.createServer(async(req,res)=>{
  if(req.method==='OPTIONS')return json(res,204,{});
  try{
@@ -41,7 +55,10 @@ const server=http.createServer(async(req,res)=>{
    return json(res,404,{ok:false,error:'not_found'});
   }
   let p=u.pathname==='/'?'/index.html':u.pathname;
-  const f=path.join(root,p);if(!f.startsWith(root)||!fs.existsSync(f)||fs.statSync(f).isDirectory())return json(res,404,{ok:false,error:'not_found'});
+  if(u.pathname==='/admin'||u.pathname==='/admin/')p='/../admin/index.html';
+  const f=path.resolve(root,p);const adminRoot=path.join(__dirname,'admin');
+  const allowed=f.startsWith(root)||f.startsWith(adminRoot);
+  if(!allowed||!fs.existsSync(f)||fs.statSync(f).isDirectory())return json(res,404,{ok:false,error:'not_found'});
   res.writeHead(200,{'Content-Type':mime[path.extname(f)]||'application/octet-stream','Cache-Control':'no-cache'});res.end(fs.readFileSync(f));
  }catch(e){console.error(e);json(res,500,{ok:false,error:e.message})}
 });
