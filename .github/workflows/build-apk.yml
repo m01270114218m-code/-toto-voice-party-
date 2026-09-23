@@ -1,0 +1,20 @@
+name: Build MT2 Voice Party APK
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - run: cd mobile && flutter pub get
+      - run: cd mobile && flutter analyze --no-fatal-infos
+      - run: cd mobile && flutter build apk --release --no-tree-shake-icons
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MT2-Voice-Party-APK
+          path: mobile/build/app/outputs/flutter-apk/app-release.apk
