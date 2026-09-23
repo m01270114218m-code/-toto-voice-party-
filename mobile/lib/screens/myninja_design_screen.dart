@@ -9,27 +9,15 @@ class Mt2DesignScreen extends StatefulWidget {
 }
 
 class _Mt2DesignScreenState extends State<Mt2DesignScreen> {
-  static final Uri _designUri = Uri.parse(
-    'https://sites.super.myninja.ai/ab99191d-0c04-4158-89af-5dd10f5bd840/326ed253/index.html',
-  );
-
   late final WebViewController _controller;
-  int _progress = 0;
 
   @override
   void initState() {
     super.initState();
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setBackgroundColor(const Color(0xFF0D0718))
-      ..setNavigationDelegate(
-        NavigationDelegate(
-          onProgress: (progress) {
-            if (mounted) setState(() => _progress = progress);
-          },
-        ),
-      )
-      ..loadRequest(_designUri);
+      ..setBackgroundColor(const Color(0xFF06031A))
+      ..loadFlutterAsset('assets/mt2_design/index.html');
   }
 
   Future<bool> _handleBack() async {
@@ -50,22 +38,10 @@ class _Mt2DesignScreenState extends State<Mt2DesignScreen> {
         if (shouldPop && context.mounted) Navigator.of(context).pop();
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFF0D0718),
+        backgroundColor: const Color(0xFF06031A),
         body: SafeArea(
           bottom: false,
-          child: Stack(
-            children: [
-              WebViewWidget(controller: _controller),
-              if (_progress < 100)
-                Align(
-                  alignment: Alignment.topCenter,
-                  child: LinearProgressIndicator(
-                    value: _progress == 0 ? null : _progress / 100,
-                    minHeight: 2,
-                  ),
-                ),
-            ],
-          ),
+          child: WebViewWidget(controller: _controller),
         ),
       ),
     );
