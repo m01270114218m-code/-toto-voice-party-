@@ -60,7 +60,11 @@ jobs:
           p=Path("android/settings.gradle")
           s=p.read_text()
           if 'https://jitpack.io' not in s:
-              s=s.replace('repositories {', 'repositories {\n        maven { url = uri("https://jitpack.io") }', 1)
+              marker='dependencyResolutionManagement {\\n    repositories {'
+              if marker in s:
+                  s=s.replace(marker, marker+'\\n        maven { url = uri("https://jitpack.io") }', 1)
+              else:
+                  s=s.replace('repositories {', 'repositories {\\n        maven { url = uri("https://jitpack.io") }', 1)
           p.write_text(s)
           p=Path("android/app/build.gradle")
           s=p.read_text()
