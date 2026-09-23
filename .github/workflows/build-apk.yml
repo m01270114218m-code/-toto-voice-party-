@@ -57,15 +57,16 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          p=Path("android/settings.gradle")
-          s=p.read_text()
-          if 'https://jitpack.io' not in s:
-              start=s.find('dependencyResolutionManagement {')
-              pos=s.find('repositories {', start)
-              if pos >= 0:
-                  pos2=pos+len('repositories {')
-                  s=s[:pos2]+'\\n        maven { url = uri("https://jitpack.io") }'+s[pos2:]
-          p.write_text(s)
+          for file in ["android/capacitor.settings.gradle","android/settings.gradle","android/build.gradle"]:
+              p=Path(file)
+              if not p.exists(): continue
+              s=p.read_text()
+              if 'https://jitpack.io' in s: continue
+              if file.endswith("capacitor.settings.gradle"):
+                  s=s.replace('mavenCentral()','mavenCentral()\n        maven { url "https://jitpack.io" }',1)
+              elif file.endswith("build.gradle") and file != "android/app/build.gradle":
+                  s=s.replace('allprojects {\n    repositories {','allprojects {\n    repositories {\n        maven { url "https://jitpack.io" }',1)
+              p.write_text(s)
           p=Path("android/app/build.gradle")
           s=p.read_text()
           if 'io.livekit:livekit-android:2.29.0' not in s:
@@ -114,6 +115,28 @@ jobs:
           if total < 55*1024*1024:
               raise SystemExit('Asset pack is below the 55 MiB target')
           PY
+
+      - name: Generate animated media pack
+        run: |
+          command -v ffmpeg
+          python3 - <<'PY'
+          from pathlib import Path
+          import subprocess
+          out=Path('android/app/src/main/assets/royal-assets')
+          videos=['intro','room','gifts','events','vip','games']
+          for name in videos:
+              src=out/f'{name if (out/f"{name}.png").exists() else "home"}.png'
+              dst=out/f'{name}.mp4'
+              subprocess.run([
+                'ffmpeg','-y','-loglevel','error','-loop','1','-i',str(src),
+                '-vf',"scale=720:1280,zoompan=z='min(zoom+0.0012,1.12)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=150:s=720x1280:fps=25",
+                '-t','6','-an','-c:v','libx264','-preset','medium','-crf','24','-pix_fmt','yuv420p','-movflags','+faststart',str(dst)
+              ],check=True)
+          total=sum(p.stat().st_size for p in out.rglob('*') if p.is_file())
+          print(f'Royal media pack: {total/1024/1024:.1f} MiB')
+          PY
+          mkdir -p android/app/src/main/res/drawable-nodpi
+          cp android/app/src/main/assets/royal-assets/{home,room,vip,gifts,events,games}.png android/app/src/main/res/drawable-nodpi/
 
       - name: Initialize native LiveKit runtime
         run: |
