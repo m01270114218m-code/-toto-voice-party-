@@ -1,1595 +1,371 @@
+// lib/main.dart
 import 'package:flutter/material.dart';
-import 'backend.dart';
-import 'voice_service.dart';
-import 'payment_service.dart';
-import 'package:flutter/services.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:socket_io_client/socket_io_client.dart' as IO;
 
-const bg = Color(0xFF08050D);
-const surface = Color(0xFF14101C);
-const surface2 = Color(0xFF21152C);
-const royal = Color(0xFF6F2DBD);
-const royal2 = Color(0xFFB45CFF);
-const gold = Color(0xFFFFC857);
-const goldSoft = Color(0xFFFFE4A3);
-
-Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await TajBackend.initialize();
-  runApp(const TajLiveApp());
+void main() {
+  SocketService.initSocket();
+  runApp(const MyApp());
 }
 
-class TajLiveApp extends StatelessWidget {
-  const TajLiveApp({super.key});
+// Socket Service
+class SocketService {
+  static late IO.Socket socket;
+  
+  static void initSocket() {
+    // Backend URL - Update with your server URL
+    socket = IO.io('http://localhost:3000', <String, dynamic>{
+      'transports': ['websocket'],
+      'autoConnect': true,
+    });
+    
+    socket.on('connect', (_) {
+      print('✅ Connected to backend');
+    });
+    
+    socket.on('disconnect', (_) {
+      print('❌ Disconnected from backend');
+    });
+  }
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'تاج لايف',
-      theme: ThemeData(
-        brightness: Brightness.dark,
-        scaffoldBackgroundColor: bg,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: royal,
-          brightness: Brightness.dark,
-        ),
-        fontFamily: 'sans',
-        useMaterial3: true,
-      ),
-      home: const AuthGate(),
+      theme: ThemeData.dark(),
+      home: const MainNavigationPage(),
     );
   }
 }
 
-class AuthGate extends StatelessWidget {
-  const AuthGate({super.key});
+// --- 1. HOME & LOBBY NAVIGATION BASE ---
+class MainNavigationPage extends StatefulWidget {
+  const MainNavigationPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<AuthState>(
-      stream: TajBackend.authChanges,
-      builder: (context, snapshot) {
-        if (TajBackend.user != null) return const HomeShell();
-        return const AuthPage();
-      },
-    );
-  }
+  State<MainNavigationPage> createState() => _MainNavigationPageState();
 }
 
-class AuthPage extends StatefulWidget {
-  const AuthPage({super.key});
-
-  @override
-  State<AuthPage> createState() => _AuthPageState();
-}
-
-class _AuthPageState extends State<AuthPage> {
-  final email = TextEditingController();
-  final password = TextEditingController();
-  final name = TextEditingController();
-  bool signup = false;
-  bool loading = false;
-
-  @override
-  void initState() {
-    super.initState();
-  }
-
-  @override
-  void dispose() {
-    email.dispose();
-    password.dispose();
-    name.dispose();
-    super.dispose();
-  }
-
-  Future<void> submit() async {
-    if (email.text.trim().isEmpty || password.text.length < 6) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('أدخل بريدًا صحيحًا وكلمة مرور من 6 أحرف على الأقل')),
-      );
-      return;
-    }
-    setState(() => loading = true);
-    try {
-      if (signup) {
-        await TajBackend.signUpWithEmail(
-          email: email.text.trim(),
-          password: password.text,
-          displayName: name.text.trim().isEmpty ? 'مستخدم تاج لايف' : name.text.trim(),
-        );
-      } else {
-        await TajBackend.signInWithEmail(email.text.trim(), password.text);
-      }
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(signup ? 'تم إنشاء الحساب. تحقق من بريدك إذا طُلب ذلك.' : 'تم تسجيل الدخول')),
-      );
-    } on AuthException catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('حدث خطأ: $e')));
-      }
-    } finally {
-      if (mounted) setState(() => loading = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        body: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Color(0xFF3A1554), bg, Color(0xFF050308)],
-            ),
-          ),
-          child: SafeArea(
-            child: Center(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
-                child: Container(
-                  padding: const EdgeInsets.all(22),
-                  decoration: BoxDecoration(
-                    color: Colors.black45,
-                    borderRadius: BorderRadius.circular(28),
-                    border: Border.all(color: gold.withOpacity(.28)),
-                    boxShadow: [BoxShadow(color: royal.withOpacity(.25), blurRadius: 35)],
-                  ),
-                  child: Column(
-                    children: [
-                      Container(
-                        width: 92,
-                        height: 92,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: const LinearGradient(colors: [royal2, royal]),
-                          border: Border.all(color: gold, width: 2),
-                        ),
-                        child: const Icon(Icons.workspace_premium, color: gold, size: 52),
-                      ),
-                      const SizedBox(height: 14),
-                      const Text('تاج لايف', style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: goldSoft)),
-                      const SizedBox(height: 5),
-                      const Text('غرف صوتية • أصدقاء • هدايا • لحظات', style: TextStyle(color: Colors.white60)),
-                      const SizedBox(height: 26),
-                      if (signup) ...[
-                        TextField(
-                          controller: name,
-                          decoration: const InputDecoration(labelText: 'الاسم', prefixIcon: Icon(Icons.person_outline)),
-                        ),
-                        const SizedBox(height: 12),
-                      ],
-                      TextField(
-                        controller: email,
-                        keyboardType: TextInputType.emailAddress,
-                        decoration: const InputDecoration(labelText: 'البريد الإلكتروني', prefixIcon: Icon(Icons.email_outlined)),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: password,
-                        obscureText: true,
-                        decoration: const InputDecoration(labelText: 'كلمة المرور', prefixIcon: Icon(Icons.lock_outline)),
-                      ),
-                      const SizedBox(height: 20),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 52,
-                        child: FilledButton(
-                          onPressed: loading ? null : submit,
-                          style: FilledButton.styleFrom(backgroundColor: royal),
-                          child: loading
-                              ? const CircularProgressIndicator()
-                              : Text(signup ? 'إنشاء حساب' : 'دخول'),
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: loading ? null : () => setState(() => signup = !signup),
-                        child: Text(signup ? 'لدي حساب بالفعل' : 'إنشاء حساب جديد'),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class HomeShell extends StatefulWidget {
-  const HomeShell({super.key});
-
-  @override
-  State<HomeShell> createState() => _HomeShellState();
-}
-
-class _HomeShellState extends State<HomeShell> {
-  int tab = 0;
-
-  final pages = const [
-    HomePage(),
-    MomentsPage(),
-    MessagesPage(),
-    CreatePage(),
-    ProfilePage(),
+class _MainNavigationPageState extends State<MainNavigationPage> {
+  int _currentIndex = 0;
+  final List<Widget> _pages = [
+    const HomePage(),
+    const GameLobbyPage(),
+    const MessagePage(),
   ];
 
   @override
   Widget build(BuildContext context) {
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        body: IndexedStack(index: tab, children: pages),
-        bottomNavigationBar: NavigationBar(
-          backgroundColor: const Color(0xFF100C15),
-          indicatorColor: royal.withOpacity(.35),
-          selectedIndex: tab,
-          onDestinationSelected: (v) => setState(() => tab = v),
-          destinations: const [
-            NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home, color: gold), label: 'الرئيسية'),
-            NavigationDestination(icon: Icon(Icons.auto_awesome_outlined), selectedIcon: Icon(Icons.auto_awesome, color: gold), label: 'اللحظات'),
-            NavigationDestination(icon: Icon(Icons.chat_bubble_outline), selectedIcon: Icon(Icons.chat, color: gold), label: 'الرسائل'),
-            NavigationDestination(icon: Icon(Icons.add_circle_outline), selectedIcon: Icon(Icons.add_circle, color: gold), label: 'إنشاء'),
-            NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person, color: gold), label: 'أنا'),
-          ],
-        ),
+    return Scaffold(
+      body: _pages[_currentIndex],
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _currentIndex,
+        onTap: (index) => setState(() => _currentIndex = index),
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+          BottomNavigationBarItem(icon: Icon(Icons.videogame_asset), label: 'Lobby'),
+          BottomNavigationBarItem(icon: Icon(Icons.message), label: 'Messages'),
+        ],
       ),
     );
   }
 }
 
-class HomePage extends StatefulWidget {
+// --- 2. HOME PAGE (ROOM LISTS) ---
+class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
   @override
-  State<HomePage> createState() => _HomePageState();
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Trending Live Rooms')),
+      body: ListView.builder(
+        itemCount: 5,
+        itemBuilder: (context, index) {
+          return Card(
+            margin: const EdgeInsets.all(10),
+            child: ListTile(
+              leading: const CircleAvatar(backgroundColor: Colors.purple, child: Icon(Icons.graphic_eq)),
+              title: Text('Rockstars Club Zone ${index + 1}'),
+              subtitle: const Text('🔥 Playing Ludo | 10 Seats'),
+              trailing: ElevatedButton(
+                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const VoiceChatRoom())),
+                child: const Text('Join'),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
 }
 
-class _HomePageState extends State<HomePage> {
-  late Future<List<Map<String, dynamic>>> _roomsFuture;
-
-  @override
-  void initState() {
-    super.initState();
-    _roomsFuture = TajBackend.liveRooms();
-  }
-
-  Future<void> _refresh() async {
-    setState(() => _roomsFuture = TajBackend.liveRooms());
-    await _roomsFuture;
-  }
+// --- 3. GAME LOBBY PAGE ---
+class GameLobbyPage extends StatelessWidget {
+  const GameLobbyPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: RefreshIndicator(
-        onRefresh: _refresh,
-        child: CustomScrollView(
-          slivers: [
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 18, 16, 10),
-              child: Row(
+    return Scaffold(
+      appBar: AppBar(title: const Text('Game Lobby')),
+      body: GridView.count(
+        crossAxisCount: 2,
+        padding: const EdgeInsets.all(15),
+        children: ['Ludo Classic', 'Teen Patti VIP', 'Carrom Master', 'Domino King'].map((game) {
+          return Card(
+            color: Colors.blueGrey[800],
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const CircleAvatar(
-                    radius: 25,
-                    backgroundColor: royal,
-                    child: Icon(Icons.person, color: Colors.white),
-                  ),
-                  const SizedBox(width: 10),
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('مرحباً بك', style: TextStyle(color: Colors.white60)),
-                        SizedBox(height: 3),
-                        Text(
-                          'أمير القلوب',
-                          style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800),
-                        ),
-                      ],
-                    ),
-                  ),
-                  _coinPill(),
-                  IconButton(
-                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SearchPage())),
-                    icon: const Icon(Icons.search),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsPage())),
-                    icon: const Icon(Icons.notifications_none),
-                  ),
+                  const Icon(Icons.casino, size: 50, color: Colors.amber),
+                  const SizedBox(height: 10),
+                  Text(game, style: const TextStyle(fontWeight: FontWeight.bold)),
                 ],
               ),
             ),
-          ),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Container(
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(24),
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF3A1554), Color(0xFF171020)],
-                  ),
-                  border: Border.all(color: gold.withOpacity(.28)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: royal.withOpacity(.25),
-                      blurRadius: 28,
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    const Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('الغرفة الملكية', style: TextStyle(color: goldSoft)),
-                          SizedBox(height: 6),
-                          Text(
-                            'ادخل وتحدث مع أصدقائك',
-                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-                          ),
-                          SizedBox(height: 5),
-                          Text('غرف صوتية • هدايا • مقاعد'),
-                        ],
-                      ),
-                    ),
-                    FilledButton(
-                      onPressed: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const RoomPage(name: 'مجلس العرب'),
-                        ),
-                      ),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: royal,
-                        foregroundColor: Colors.white,
-                      ),
-                      child: const Text('دخول'),
-                    ),
-                  ],
-                ),
-              ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
+// --- 4. MESSAGE & BLOCK PAGE ---
+class MessagePage extends StatelessWidget {
+  const MessagePage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Direct Messages')),
+      body: ListView(
+        children: [
+          ListTile(
+            leading: const CircleAvatar(child: Text('U1')),
+            title: const Text('Rahul Kumar'),
+            subtitle: const Text('Hey! Lets play Ludo.'),
+            trailing: IconButton(
+              icon: const Icon(Icons.block, color: Colors.red),
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('User Blocked Successfully!')));
+              },
             ),
-          ),
-          SliverToBoxAdapter(
+          )
+        ],
+      ),
+    );
+  }
+}
+
+// --- 5. CHAT ROOM PAGE (10 SEATS LAYOUT, MARQUEE BROADCAST & CONTROLS) ---
+class VoiceChatRoom extends StatefulWidget {
+  const VoiceChatRoom({super.key});
+
+  @override
+  State<VoiceChatRoom> createState() => _VoiceChatRoomState();
+}
+
+class _VoiceChatRoomState extends State<VoiceChatRoom> {
+  bool isMuted = false;
+  bool isSpeakerOn = true;
+  String currentBroadcast = "📢 Welcome to the Chat Room! Send gifts to support hosts.";
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.indigo[900],
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        title: const Text('👑 King\'s Mansion Room'),
+        actions: [
+          IconButton(icon: const Icon(Icons.minimize), onPressed: () => Navigator.pop(context)),
+          IconButton(icon: const Icon(Icons.close, color: Colors.red), onPressed: () => Navigator.pop(context)),
+        ],
+      ),
+      body: Column(
+        children: [
+          // 1. Top Scrolling Live Broadcasting Marquee Banner
+          Container(
+            color: Colors.black54,
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-              child: Row(
-                children: ['الرائجة', 'أتابعها', 'حفلات', 'ألعاب', 'موسيقى', 'VIP', 'قبائل']
-                    .map(
-                      (x) => Padding(
-                        padding: const EdgeInsets.only(left: 8),
-                        child: ChoiceChip(
-                          label: Text(x),
-                          selected: x == 'الرائجة',
-                          onSelected: (_) {},
-                          selectedColor: royal,
-                        ),
-                      ),
-                    )
-                    .toList(),
-              ),
+              child: Text(currentBroadcast, style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)),
             ),
           ),
-          const SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(16, 0, 16, 12),
-              child: Text(
-                'الغرف المباشرة',
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
-              ),
-            ),
-          ),
-          SliverToBoxAdapter(
-            child: FutureBuilder<List<Map<String, dynamic>>>(
-              future: _roomsFuture,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Padding(
-                    padding: EdgeInsets.all(28),
-                    child: Center(child: CircularProgressIndicator(color: gold)),
-                  );
-                }
-                if (snapshot.hasError) {
-                  return Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Text(
-                      'تعذر تحميل الغرف: ${snapshot.error}',
-                      style: const TextStyle(color: Colors.white60),
-                    ),
-                  );
-                }
-                final rooms = snapshot.data ?? const <Map<String, dynamic>>[];
-                if (rooms.isEmpty) {
-                  return const Padding(
-                    padding: EdgeInsets.all(28),
-                    child: Center(
-                      child: Text('لا توجد غرف مباشرة الآن', style: TextStyle(color: Colors.white60)),
-                    ),
-                  );
-                }
+          const SizedBox(height: 20),
+
+          // 2. 10 Seats Matrix Grid Layout
+          Expanded(
+            child: GridView.builder(
+              padding: const EdgeInsets.all(15),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 5, mainAxisSpacing: 15, crossAxisSpacing: 15),
+              itemCount: 10,
+              itemBuilder: (context, index) {
+                bool isKing = index == 0;
                 return Column(
-                  children: rooms.map((room) {
-                    final owner = room['profiles'] as Map<String, dynamic>?;
-                    return _RoomCard(
-                      name: room['name'] as String? ?? 'غرفة تاج لايف',
-                      listeners: '${room['viewer_count'] ?? 0}',
-                      roomId: room['id'] as String,
-                      ownerName: owner?['display_name'] as String?,
-                    );
-                  }).toList(),
+                  children: [
+                    CircleAvatar(
+                      radius: 24,
+                      backgroundColor: isKing ? Colors.amber : Colors.grey[700],
+                      child: Icon(isKing ? Icons.star : Icons.person, color: isKing ? Colors.black : Colors.white),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      isKing ? 'King' : 'Seat ${index + 1}',
+                      style: TextStyle(fontSize: 11, color: isKing ? Colors.amber : Colors.white70),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                 );
               },
             ),
           ),
-          const SliverToBoxAdapter(child: SizedBox(height: 20)),
-        ],
-      ),
-      ),
-    );
-  }
 
-  static Widget _coinPill() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
-      decoration: BoxDecoration(
-        color: surface2,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: gold.withOpacity(.25)),
-      ),
-      child: const Row(
-        children: [
-          Icon(Icons.monetization_on, size: 17, color: gold),
-          SizedBox(width: 4),
-          Text('5,250'),
-        ],
-      ),
-    );
-  }
-}
-
-class _RoomCard extends StatelessWidget {
-  final String name;
-  final String listeners;
-  final String roomId;
-  final String? ownerName;
-
-  const _RoomCard({
-    required this.name,
-    required this.listeners,
-    required this.roomId,
-    this.ownerName,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 11),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => RoomPage(name: name, roomId: roomId)),
-        ),
-        child: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: surface,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: royal.withOpacity(.42)),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 72,
-                height: 72,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(18),
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF6D2DB2), Color(0xFF281438)],
-                  ),
-                  border: Border.all(color: gold.withOpacity(.3)),
-                ),
-                child: const Icon(Icons.mic_rounded, color: gold, size: 32),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          // 3. Bottom Controls Panel Bar
+          Container(
+            color: Colors.black87,
+            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            name,
-                            style: const TextStyle(
-                              fontSize: 17,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF8D214C),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Text(
-                            'مباشر',
-                            style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ],
+                    // Mic Mute Option
+                    IconButton(
+                      icon: Icon(isMuted ? Icons.mic_off : Icons.mic, color: isMuted ? Colors.red : Colors.green),
+                      onPressed: () => setState(() => isMuted = !isMuted),
                     ),
-                    const SizedBox(height: 7),
-                    Text(
-                      '🇪🇬 مصر • $listeners مستمع • ${ownerName ?? 'مالك الغرفة'}',
-                      style: const TextStyle(color: Colors.white60),
+                    // Speaker Control
+                    IconButton(
+                      icon: Icon(isSpeakerOn ? Icons.volume_up : Icons.volume_off, color: Colors.white),
+                      onPressed: () => setState(() => isSpeakerOn = !isSpeakerOn),
                     ),
-                    const SizedBox(height: 7),
-                    Row(
-                      children: List.generate(
-                        5,
-                        (i) => const Padding(
-                          padding: EdgeInsets.only(left: 4),
-                          child: CircleAvatar(
-                            radius: 10,
-                            backgroundColor: royal2,
-                            child: Icon(Icons.person, size: 11),
-                          ),
-                        ),
-                      ),
+                    // Launch Game Inside Room
+                    IconButton(
+                      icon: const Icon(Icons.videogame_asset, color: Colors.cyan),
+                      onPressed: () => _showGamePanel(context),
+                    ),
+                    // Settings/Rewards
+                    IconButton(
+                      icon: const Icon(Icons.settings, color: Colors.grey),
+                      onPressed: () => _showSettingsPanel(context),
+                    ),
+                    // Gifts / Self Gifting Panel Trigger
+                    IconButton(
+                      icon: const Icon(Icons.card_giftcard, color: Colors.pinkAccent, size: 32),
+                      onPressed: () => _showGiftPanel(context),
                     ),
                   ],
                 ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class RoomPage extends StatefulWidget {
-  final String name;
-  final String? roomId;
-  final int seatCount;
-  const RoomPage({super.key, required this.name, this.roomId, this.seatCount = 8});
-
-  @override
-  State<RoomPage> createState() => _RoomPageState();
-}
-
-class _RoomPageState extends State<RoomPage> {
-  int selectedSeat = -1;
-  late int _activeSeatCount;
-  bool _joined = false;
-  bool micOn = false;
-  bool _seatBusy = false;
-  final TajVoiceService _voice = TajVoiceService();
-  bool _voiceConnected = false;
-  final messages = <String>[
-    'مرحباً بكم في الغرفة 👋',
-    'أهلاً بكل الموجودين ❤️',
-    'يرجى احترام الجميع والتواصل بأدب.',
-  ];
-  final messageController = TextEditingController();
-
-  @override
-  void dispose() {
-    messageController.dispose();
-    if (widget.roomId != null) {
-      TajBackend.leaveRoom(widget.roomId!);
-    }
-    _voice.dispose();
-    super.dispose();
-  }
-
-  Future<void> _toggleMic() async {
-    if (widget.roomId == null || selectedSeat < 0 || TajBackend.user == null) {
-      if (mounted) setState(() => micOn = !micOn);
-      return;
-    }
-    try {
-      final next = !micOn;
-      if (!_voiceConnected) {
-        await _voice.connect(widget.roomId!, displayName: TajBackend.user?.id ?? 'guest');
-        _voiceConnected = true;
-      }
-      await _voice.setMicrophone(next);
-      await TajBackend.setMic(widget.roomId!, selectedSeat + 1, next);
-      if (mounted) setState(() => micOn = next);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('تعذر تغيير حالة الميكروفون: $e')),
-        );
-      }
-    }
-  }
-
-  Future<void> _sendMessage(String value) async {
-    if (value.trim().isEmpty) return;
-    final roomId = widget.roomId;
-    if (roomId == null || TajBackend.user == null) {
-      setState(() => messages.add(value.trim()));
-    } else {
-      try {
-        await TajBackend.sendRoomMessage(roomId, value);
-      } catch (_) {
-        if (mounted) setState(() => messages.add(value.trim()));
-      }
-    }
-    messageController.clear();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (!_joined && widget.roomId != null && TajBackend.user != null) {
-      _joined = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) => TajBackend.joinRoom(widget.roomId!));
-    }
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        body: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Color(0xFF3B1454), Color(0xFF0C0710), bg],
-            ),
-          ),
-          child: SafeArea(
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
-                  child: Row(
-                    children: [
-                      IconButton(
-                        onPressed: () => Navigator.pop(context),
-                        icon: const Icon(Icons.arrow_forward),
-                      ),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(widget.name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                            const Text('1,248 مستمع', style: TextStyle(fontSize: 11, color: Colors.white54)),
-                          ],
-                        ),
-                      ),
-                      IconButton(onPressed: () => _roomSettings(context), icon: const Icon(Icons.settings_outlined)),
-                      IconButton(onPressed: () async {
-                        await Clipboard.setData(ClipboardData(text: 'انضم إلى غرفة تاج لايف: ${widget.name}'));
-                        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم نسخ دعوة الغرفة')));
-                      }, icon: const Icon(Icons.share_outlined)),
-                      const CircleAvatar(
-                        radius: 19,
-                        backgroundColor: royal,
-                        child: Icon(Icons.person, size: 20),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-                  decoration: BoxDecoration(
-                    color: Colors.black26,
-                    borderRadius: BorderRadius.circular(15),
-                    border: Border.all(color: gold.withOpacity(.2)),
-                  ),
-                  child: const Row(
-                    children: [
-                      Icon(Icons.workspace_premium, color: gold, size: 19),
-                      SizedBox(width: 8),
-                      Text('الغرفة الملكية'),
-                      Spacer(),
-                      Text('VIP 5', style: TextStyle(color: gold)),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: widget.roomId == null
-                      ? GridView.builder(
-                          padding: const EdgeInsets.fromLTRB(12, 15, 12, 6),
-                          itemCount: _activeSeatCount,
-                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: _activeSeatCount == 15 ? 5 : 4,
-                            childAspectRatio: .70,
-                            crossAxisSpacing: 5,
-                            mainAxisSpacing: 8,
-                          ),
-                          itemBuilder: (_, i) => _Seat(
-                            index: i,
-                            selected: i == selectedSeat,
-                            onTap: () => setState(() => selectedSeat = i),
-                          ),
-                        )
-                      : StreamBuilder<List<Map<String, dynamic>>>(
-                          stream: TajBackend.roomSeats(widget.roomId!),
-                          builder: (context, snapshot) {
-                            final rows = snapshot.data ?? const <Map<String, dynamic>>[];
-                            return GridView.builder(
-                              padding: const EdgeInsets.fromLTRB(12, 15, 12, 6),
-                              itemCount: widget.seatCount,
-                              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: widget.seatCount == 15 ? 5 : 4,
-                                childAspectRatio: .70,
-                                crossAxisSpacing: 5,
-                                mainAxisSpacing: 8,
-                              ),
-                              itemBuilder: (_, i) {
-                                final seatNo = i + 1;
-                                final row = rows.cast<Map<String, dynamic>?>().firstWhere(
-                                  (x) => x?['seat_number'] == seatNo,
-                                  orElse: () => null,
-                                );
-                                final occupied = row?['user_id'] != null;
-                                final mine = row?['user_id'] == TajBackend.user?.id;
-                                return _Seat(
-                                  index: i,
-                                  selected: mine,
-                                  occupied: occupied,
-                                  onLongPress: occupied && !mine ? () => _moderate(context, row?['user_id']?.toString() ?? '') : null,
-                                  onTap: () async {
-                                    if (_seatBusy) return;
-                                    setState(() => _seatBusy = true);
-                                    try {
-                                      if (mine) {
-                                        await TajBackend.releaseSeat(widget.roomId!, seatNo);
-                                        if (mounted) setState(() => selectedSeat = -1);
-                                      } else if (!occupied) {
-                                        await TajBackend.requestSeat(widget.roomId!, seatNo);
-                                        if (mounted) setState(() => selectedSeat = i);
-                                      }
-                                    } catch (e) {
-                                      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(content: Text('تعذر تغيير المقعد: $e')),
-                                      );
-                                    } finally {
-                                      if (mounted) setState(() => _seatBusy = false);
-                                    }
-                                  },
-                                );
-                              },
-                            );
-                          },
-                        ),
-                ),
-                Container(
-                  margin: const EdgeInsets.fromLTRB(12, 4, 12, 10),
-                  padding: const EdgeInsets.all(12),
-                  height: 205,
-                  decoration: BoxDecoration(
-                    color: Colors.black38,
-                    borderRadius: BorderRadius.circular(22),
-                    border: Border.all(color: Colors.white10),
-                  ),
-                  child: Column(
-                    children: [
-                      const Row(
-                        children: [
-                          Text('الدردشة', style: TextStyle(color: gold, fontWeight: FontWeight.bold)),
-                          SizedBox(width: 22),
-                          Text('الهدايا', style: TextStyle(color: Colors.white70)),
-                          Spacer(),
-                          Icon(Icons.more_horiz),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Expanded(
-                        child: widget.roomId == null
-                            ? ListView(
-                                children: messages.map((m) => Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 4),
-                                  child: Text(m),
-                                )).toList(),
-                              )
-                            : StreamBuilder<List<Map<String, dynamic>>>(
-                                stream: TajBackend.roomMessages(widget.roomId!),
-                                builder: (context, snapshot) {
-                                  if (snapshot.hasError) {
-                                    return const Center(child: Text('تعذر تحميل المحادثة'));
-                                  }
-                                  final rows = snapshot.data ?? const <Map<String, dynamic>>[];
-                                  if (rows.isEmpty) {
-                                    return const Center(child: Text('ابدأ أول محادثة في الغرفة', style: TextStyle(color: Colors.white54)));
-                                  }
-                                  return ListView.builder(
-                                    itemCount: rows.length,
-                                    itemBuilder: (_, i) => Padding(
-                                      padding: const EdgeInsets.symmetric(vertical: 4),
-                                      child: Text(rows[i]['body']?.toString() ?? ''),
-                                    ),
-                                  );
-                                },
-                              ),
-                      ),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              onSubmitted: _sendMessage,
-                              controller: messageController,
-                              decoration: InputDecoration(
-                                hintText: 'اكتب رسالة...',
-                                isDense: true,
-                                filled: true,
-                                fillColor: surface,
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(13),
-                                  borderSide: BorderSide.none,
-                                ),
-                              ),
-                            ),
-                          ),
-                          IconButton(
-                            onPressed: () => _showGifts(context),
-                            icon: const Icon(Icons.card_giftcard, color: gold),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                  child: Row(
-                    children: [
-                      _RoundButton(icon: Icons.card_giftcard, color: gold, onTap: () => _showGifts(context)),
-                      _RoundButton(
-                        icon: micOn ? Icons.mic : Icons.mic_off,
-                        color: Colors.white,
-                        onTap: _toggleMic,
-                      ),
-                      _RoundButton(icon: Icons.add_reaction, color: royal2, onTap: () {}),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: FilledButton(
-                          onPressed: () => setState(() => selectedSeat = selectedSeat < 0 ? 0 : -1),
-                          style: FilledButton.styleFrom(backgroundColor: royal),
-                          child: Text(selectedSeat < 0 ? 'طلب مقعد' : 'مغادرة المقعد'),
-                        ),
-                      ),
-                    ],
+                // Text Message Box In Room
+                TextField(
+                  decoration: InputDecoration(
+                    hintText: "Type live message...",
+                    hintStyle: const TextStyle(color: Colors.white54, fontSize: 13),
+                    suffixIcon: IconButton(icon: const Icon(Icons.send, color: Colors.blue), onPressed: () {}),
                   ),
                 ),
               ],
             ),
           ),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _roomSettings(BuildContext context) async {
-    if (widget.roomId == null) return;
-    final selected = await showModalBottomSheet<int>(
-      context: context,
-      backgroundColor: surface,
-      builder: (_) => SafeArea(
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Padding(padding: EdgeInsets.all(18), child: Text('إعدادات الغرفة', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold))),
-          for (final count in [8, 10, 15])
-            ListTile(
-              leading: Icon(Icons.mic_external_on, color: count == _activeSeatCount ? gold : Colors.white54),
-              title: Text('$count ميكروفونات'),
-              trailing: count == _activeSeatCount ? const Icon(Icons.check, color: gold) : null,
-              onTap: () => Navigator.pop(context, count),
-            ),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.shield_outlined, color: gold),
-            title: const Text('إدارة المستخدمين'),
-            onTap: () => Navigator.pop(context, -1),
-          ),
-        ]),
-      ),
-    );
-    if (selected == null || selected < 1) return;
-    if (selected == _activeSeatCount) return;
-    try {
-      await TajBackend.updateRoomSeats(widget.roomId!, selected);
-      if (mounted) setState(() => _activeSeatCount = selected);
-    } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('لا يمكن تغيير عدد المقاعد: $e')));
-    }
-  }
-
-  Future<void> _moderate(BuildContext context, String targetId) async {
-    if (widget.roomId == null) return;
-    final action = await showModalBottomSheet<String>(
-      context: context,
-      backgroundColor: surface,
-      builder: (_) => SafeArea(child: Column(mainAxisSize: MainAxisSize.min, children: [
-        const Padding(padding: EdgeInsets.all(18), child: Text('إدارة المستخدم', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold))),
-        ListTile(leading: const Icon(Icons.volume_off), title: const Text('كتم'), onTap: () => Navigator.pop(context, 'mute')),
-        ListTile(leading: const Icon(Icons.volume_up), title: const Text('إلغاء الكتم'), onTap: () => Navigator.pop(context, 'unmute')),
-        ListTile(leading: const Icon(Icons.warning_amber), title: const Text('تحذير'), onTap: () => Navigator.pop(context, 'warn')),
-        ListTile(leading: const Icon(Icons.remove_circle_outline), title: const Text('إخراج من الغرفة'), onTap: () => Navigator.pop(context, 'kick')),
-        ListTile(leading: const Icon(Icons.block), title: const Text('حظر'), onTap: () => Navigator.pop(context, 'ban')),
-      ])),
-    );
-    if (action == null) return;
-    try {
-      await TajBackend.moderateUser(roomId: widget.roomId!, targetUserId: targetId, action: action);
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم تنفيذ الإجراء')));
-    } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('ليس لديك صلاحية لهذا الإجراء: $e')));
-    }
-  }
-
-  Future<void> _showGifts(BuildContext context) async {
-    String? receiverId;
-    if (widget.roomId != null) {
-      try {
-        final rows = await TajBackend.roomSeats(widget.roomId!).first;
-        for (final row in rows) {
-          final id = row['user_id']?.toString();
-          if (id != null && id != TajBackend.user?.id) {
-            receiverId = id;
-            break;
-          }
-        }
-      } catch (_) {}
-    }
-    if (!context.mounted) return;
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: surface,
-      isScrollControlled: true,
-      builder: (_) => GiftSheet(roomId: widget.roomId, receiverId: receiverId),
-    );
-  }
-}
-
-class _Seat extends StatelessWidget {
-  final int index;
-  final bool selected;
-  final bool occupied;
-  final VoidCallback onTap;
-  final VoidCallback? onLongPress;
-
-  const _Seat({
-    required this.index,
-    required this.selected,
-    this.occupied = false,
-    required this.onTap,
-    this.onLongPress,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      onLongPress: onLongPress,
-      child: Column(
-        children: [
-          Container(
-            width: 58,
-            height: 58,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: const LinearGradient(
-                colors: [Color(0xFF67269D), Color(0xFF1B1026)],
-              ),
-              border: Border.all(
-                color: selected ? gold : (occupied ? Colors.redAccent : royal2.withOpacity(.35)),
-                width: selected ? 3 : 1.5,
-              ),
-              boxShadow: selected
-                  ? [BoxShadow(color: gold.withOpacity(.28), blurRadius: 16)]
-                  : null,
-            ),
-            child: Icon(
-              index == 0 ? Icons.person : Icons.event_seat,
-              color: index == 0 ? gold : Colors.white38,
-            ),
-          ),
-          const SizedBox(height: 5),
-          Text(
-            index == 0 ? 'المالك' : 'مقعد ${index + 1}',
-            style: const TextStyle(fontSize: 10, color: Colors.white70),
-          ),
         ],
       ),
     );
   }
-}
 
-class _RoundButton extends StatelessWidget {
-  final IconData icon;
-  final Color color;
-  final VoidCallback onTap;
-
-  const _RoundButton({
-    required this.icon,
-    required this.color,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 6),
-      child: CircleAvatar(
-        backgroundColor: surface2,
-        child: IconButton(
-          onPressed: onTap,
-          icon: Icon(icon, color: color, size: 20),
-        ),
-      ),
-    );
-  }
-}
-
-class GiftSheet extends StatefulWidget {
-  final String? roomId;
-  final String? receiverId;
-  const GiftSheet({super.key, this.roomId, this.receiverId});
-  @override State<GiftSheet> createState() => _GiftSheetState();
-}
-
-class _GiftSheetState extends State<GiftSheet> {
-  late Future<List<Map<String, dynamic>>> _future;
-  String? _sending;
-  String? _selectedReceiver;
-  late Future<List<Map<String,dynamic>>> _seatsFuture;
-  @override void initState() { super.initState(); _future = TajBackend.gifts(); _selectedReceiver = widget.receiverId; _seatsFuture = widget.roomId == null ? Future.value(const <Map<String,dynamic>>[]) : TajBackend.roomSeats(widget.roomId!).first; }
-
-  Future<void> _send(Map<String, dynamic> gift) async {
-    final receiver = _selectedReceiver;
-    final room = widget.roomId;
-    if (receiver == null || room == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('اختر متحدثًا على مقعد أولاً')));
-      return;
-    }
-    final id = gift['id']?.toString();
-    if (id == null) return;
-    setState(() => _sending = id);
-    try {
-      await TajBackend.sendGift(receiverId: receiver, giftId: id, quantity: 1, roomId: room);
-      if (mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تم إرسال ' + (gift['name']?.toString() ?? 'الهدية') + ' 🎁')));
-      }
-    } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تعذر إرسال الهدية: ' + e.toString())));
-    } finally {
-      if (mounted) setState(() => _sending = null);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) => Directionality(
-    textDirection: TextDirection.rtl,
-    child: Padding(
-      padding: const EdgeInsets.all(18),
-      child: FutureBuilder<List<Map<String, dynamic>>>(
-        future: _future,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) return const SizedBox(height: 220, child: Center(child: CircularProgressIndicator(color: gold)));
-          if (snapshot.hasError) return SizedBox(height: 220, child: Center(child: Text('تعذر تحميل الهدايا: ' + snapshot.error.toString())));
-          final rows = snapshot.data ?? const <Map<String, dynamic>>[];
-          if (rows.isEmpty) return const SizedBox(height: 220, child: Center(child: Text('لا توجد هدايا متاحة')));
-          return FutureBuilder<List<Map<String,dynamic>>>(future: _seatsFuture, builder: (context, seatsSnapshot) {
-            final seats = (seatsSnapshot.data ?? const <Map<String,dynamic>>[]).where((r) => r['user_id'] != null && r['user_id'].toString() != TajBackend.user?.id).toList();
-            return Column(mainAxisSize: MainAxisSize.min, children: [
-            const Text('إرسال هدية', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-            if (widget.roomId != null) ...[
-              const SizedBox(height: 8), const Align(alignment: Alignment.centerRight, child: Text('اختر المستلم', style: TextStyle(color: gold))), const SizedBox(height: 6),
-              if (seats.isEmpty) const Text('لا يوجد متحدث آخر على المقاعد', style: TextStyle(color: Colors.white54))
-              else Wrap(spacing: 6, children: seats.map((seat) { final id=seat['user_id'].toString(); return ChoiceChip(label: Text('مقعد '+(seat['seat_number']?.toString()??'')), selected: id==_selectedReceiver, onSelected: (_) => setState(() => _selectedReceiver=id), selectedColor: royal); }).toList()),
-            ],
-            const SizedBox(height: 14),
-            GridView.builder(
-              shrinkWrap: true,
-              itemCount: rows.length,
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3),
-              itemBuilder: (_, i) {
-                final g = rows[i];
-                final id = g['id']?.toString();
-                final busy = _sending == id;
-                return Card(
-                  color: surface2,
-                  child: InkWell(
-                    onTap: busy ? null : () => _send(g),
-                    child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                      Text(g['emoji']?.toString() ?? '🎁', style: const TextStyle(fontSize: 31)),
-                      Text(g['name']?.toString() ?? 'هدية'),
-                      Text((g['coin_price']?.toString() ?? '0') + ' 🪙', style: const TextStyle(color: gold)),
-                      if (busy) const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
-                    ]),
-                  ),
-                );
-              },
-            ),
-          ]);
-          });
-        },
-      ),
-    ),
-  );
-}
-
-class NotificationsPage extends StatefulWidget {
-  const NotificationsPage({super.key});
-  @override State<NotificationsPage> createState() => _NotificationsPageState();
-}
-class _NotificationsPageState extends State<NotificationsPage> {
-  late Future<List<Map<String, dynamic>>> _future;
-  @override void initState() { super.initState(); _future = TajBackend.myNotifications(); }
-  @override Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('الإشعارات')),
-    body: FutureBuilder<List<Map<String, dynamic>>>(
-      future: _future,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator(color: gold));
-        if (snapshot.hasError) return Center(child: Text('تعذر تحميل الإشعارات: ' + snapshot.error.toString()));
-        final rows = snapshot.data ?? const <Map<String, dynamic>>[];
-        if (rows.isEmpty) return const Center(child: Text('لا توجد إشعارات جديدة'));
-        return ListView.separated(
-          padding: const EdgeInsets.all(14), itemCount: rows.length,
-          separatorBuilder: (_, __) => const Divider(height: 1),
-          itemBuilder: (_, i) {
-            final n = rows[i]; final read = n['read_at'] != null;
-            return ListTile(
-              leading: Icon(read ? Icons.notifications_none : Icons.notifications_active, color: read ? Colors.white54 : gold),
-              title: Text(n['title']?.toString() ?? 'تاج لايف'),
-              subtitle: Text(n['body']?.toString() ?? ''),
-              onTap: () async {
-                if (!read && n['id'] != null) await TajBackend.markNotificationRead(n['id'].toString());
-                if (mounted) setState(() => _future = TajBackend.myNotifications());
-              },
-            );
-          },
-        );
-      },
-    ),
-  );
-}
-
-class MomentsPage extends StatefulWidget {
-  const MomentsPage({super.key});
-  @override State<MomentsPage> createState() => _MomentsPageState();
-}
-class _MomentsPageState extends State<MomentsPage> {
-  late Future<List<Map<String, dynamic>>> _future;
-  @override void initState() { super.initState(); _future = TajBackend.moments(); }
-  Future<void> _refresh() async { setState(() => _future = TajBackend.moments()); await _future; }
-  @override Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('اللحظات'), actions: [IconButton(onPressed: _compose, icon: const Icon(Icons.add, color: gold))]),
-    body: RefreshIndicator(
-      onRefresh: _refresh,
-      child: FutureBuilder<List<Map<String, dynamic>>>(
-        future: _future,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator(color: gold));
-          if (snapshot.hasError) return Center(child: Text('تعذر تحميل اللحظات: ' + snapshot.error.toString()));
-          final rows = snapshot.data ?? const <Map<String, dynamic>>[];
-          if (rows.isEmpty) return ListView(children: const [SizedBox(height: 220), Center(child: Text('لا توجد لحظات بعد'))]);
-          return ListView.builder(
-            padding: const EdgeInsets.all(16), itemCount: rows.length,
-            itemBuilder: (_, i) {
-              final r = rows[i]; final p = r['profiles'] as Map<String, dynamic>?;
-              return _MomentCard(name: p?['display_name']?.toString() ?? 'مستخدم تاج لايف', text: r['text']?.toString() ?? '', likes: (r['likes_count'] as num?)?.toInt() ?? 0);
-            },
-          );
-        },
-      ),
-    ),
-  );
-  Future<void> _compose() async {
-    final c = TextEditingController();
-    final text = await showDialog<String>(
+  void _showGiftPanel(BuildContext context) {
+    showModalBottomSheet(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('نشر لحظة'),
-        content: TextField(controller: c, maxLines: 5, autofocus: true, decoration: const InputDecoration(hintText: 'اكتب ما تريد مشاركته...')),
-        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')), FilledButton(onPressed: () => Navigator.pop(context, c.text.trim()), child: const Text('نشر'))],
-      ),
-    );
-    c.dispose();
-    if (text == null || text.isEmpty) return;
-    try { await TajBackend.createMoment(text); if (mounted) setState(() => _future = TajBackend.moments()); }
-    catch (e) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تعذر نشر اللحظة: ' + e.toString()))); }
-  }
-}
-class _MomentCard extends StatelessWidget {
-  const _MomentCard({required this.name, required this.text, required this.likes});
-  final String name, text; final int likes;
-  @override Widget build(BuildContext context) => Card(
-    color: surface, margin: const EdgeInsets.only(bottom: 12),
-    child: Padding(padding: const EdgeInsets.all(15), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(children: [const CircleAvatar(backgroundColor: royal, child: Icon(Icons.person)), const SizedBox(width: 9), Text(name, style: const TextStyle(fontWeight: FontWeight.bold)), const Spacer(), const Text('منذ قليل', style: TextStyle(color: Colors.white38))]),
-      const SizedBox(height: 12), Text(text, style: const TextStyle(fontSize: 16)), const SizedBox(height: 12),
-      Row(children: [const Icon(Icons.favorite_border, color: gold, size: 19), const SizedBox(width: 5), Text(likes.toString()), const SizedBox(width: 20), const Icon(Icons.chat_bubble_outline, size: 19), const SizedBox(width: 5), const Text('تعليق')]),
-    ])),
-  );
-}
-class FollowingPage extends StatefulWidget {
-  const FollowingPage({super.key});
-  @override State<FollowingPage> createState()=>_FollowingPageState();
-}
-class _FollowingPageState extends State<FollowingPage>{
-  late Future<List<Map<String,dynamic>>> f;
-  @override void initState(){super.initState();f=TajBackend.following();}
-  @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:const Text('المتابَعون')),body:FutureBuilder<List<Map<String,dynamic>>>(future:f,builder:(c,s)=>ListView.builder(itemCount:s.data?.length??0,itemBuilder:(_,i){final r=s.data![i];final profile=(r['profiles'] as Map?)?.cast<String,dynamic>()??{};return ListTile(leading:const CircleAvatar(child:Icon(Icons.person)),title:Text(profile['display_name']?.toString()??'مستخدم'),subtitle:Text('@${profile['username']??''} • ${profile['public_id']??''}'));})));
-}
-
-class SearchPage extends StatefulWidget {
-  const SearchPage({super.key});
-  @override State<SearchPage> createState() => _SearchPageState();
-}
-class _SearchPageState extends State<SearchPage> {
-  final c=TextEditingController();
-  List<Map<String,dynamic>> rows=[];
-  bool loading=false;
-  Future<void> go() async {
-    setState(()=>loading=true);
-    try { rows=await TajBackend.searchProfiles(c.text); }
-    catch (_) { rows=[]; }
-    if(mounted)setState(()=>loading=false);
-  }
-  @override Widget build(BuildContext context)=>Scaffold(
-    appBar: AppBar(title: const Text('البحث')),
-    body: Column(children:[
-      Padding(padding: const EdgeInsets.all(14), child: TextField(controller:c, textInputAction:TextInputAction.search, onSubmitted:(_)=>go(), decoration:InputDecoration(hintText:'اسم أو username أو ID', suffixIcon:IconButton(onPressed:go,icon:const Icon(Icons.search))))),
-      if(loading) const LinearProgressIndicator(color:gold),
-      Expanded(child:ListView.builder(itemCount:rows.length,itemBuilder:(_,i){final r=rows[i];return ListTile(
-  leading: const CircleAvatar(child: Icon(Icons.person)),
-  title: Text(r['display_name']?.toString()??'مستخدم'),
-  subtitle: Text('@'+(r['username']?.toString()??'')+' • ID '+(r['public_id']?.toString()??'')),
-  trailing: Row(mainAxisSize:MainAxisSize.min,children:[
-    IconButton(icon:const Icon(Icons.person_add,color:gold),onPressed:() async {try{await TajBackend.followUser(r['id'].toString());if(mounted)ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('تمت المتابعة')));}catch(e){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('تعذر المتابعة: $e')));}}),
-    IconButton(icon:const Icon(Icons.chat_bubble_outline,color:royal2),onPressed:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>PrivateChatPage(userId:r['id'].toString(),title:r['display_name']?.toString()??'مستخدم')))),
-  ]),
-);})),
-    ])
-  );
-}
-class VipPage extends StatefulWidget {
-  const VipPage({super.key});
-  @override State<VipPage> createState()=>_VipPageState();
-}
-class _VipPageState extends State<VipPage>{
-  late Future<List<Map<String,dynamic>>> f;
-  @override void initState(){super.initState();f=TajBackend.vipLevels();}
-  @override
-Widget build(BuildContext context) {
-  return Scaffold(
-    appBar: AppBar(title: const Text('VIP والمستويات')),
-    body: FutureBuilder<List<Map<String, dynamic>>>(
-      future: f,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator(color: gold));
-        }
-        if (snapshot.hasError) {
-          return Center(child: Text('تعذر تحميل مستويات VIP: ${snapshot.error}'));
-        }
-        final rows = snapshot.data ?? const <Map<String, dynamic>>[];
-        return ListView(
-          padding: const EdgeInsets.all(14),
-          children: rows.map((r) => Card(
-            color: surface,
-            child: ListTile(
-              leading: const Icon(Icons.workspace_premium, color: gold),
-              title: Text('VIP ${r['level'] ?? ''}'),
-              subtitle: Text('XP المطلوب: ${r['xp_required'] ?? 0}'),
-            ),
-          )).toList(),
+      builder: (context) {
+        return Container(
+          height: 250,
+          padding: const EdgeInsets.all(15),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Send Gifts (Self Gifting Enabled)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 15),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _giftItem(context, '👑 Crown', '1000 Coins'),
+                  _giftItem(context, '🚀 Rocket', '500 Coins'),
+                  _giftItem(context, '🌹 Rose', '10 Coins'),
+                ],
+              ),
+              const SizedBox(height: 15),
+              const Text('Select Emojis (Min 20 Available)', style: TextStyle(color: Colors.grey)),
+              const SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(children: [Text('😂❤️🔥😭👍🎉😎🌟👏✨🥳💔👑💯🚀🍀🍿🍬🎈🎂🎸🕺')]),
+              )
+            ],
+          ),
         );
       },
-    ),
-  );
-}
-}
-class ProfileEditPage extends StatefulWidget {
-  const ProfileEditPage({super.key});
-  @override State<ProfileEditPage> createState()=>_ProfileEditPageState();
-}
-class _ProfileEditPageState extends State<ProfileEditPage>{
-  final name=TextEditingController(), username=TextEditingController(), bio=TextEditingController();
-  @override void initState(){super.initState();TajBackend.myProfile().then((p){if(p!=null){name.text=p['display_name']?.toString()??'';username.text=p['username']?.toString()??'';bio.text=p['bio']?.toString()??'';}if(mounted)setState((){});});}
-  Future<void> save() async {try{await TajBackend.updateProfile(displayName:name.text.trim(),username:username.text.trim(),bio:bio.text.trim());if(mounted){ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('تم الحفظ')));Navigator.pop(context);}}catch(e){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('تعذر الحفظ: $e')));}}
-  @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:const Text('تعديل الملف الشخصي')),body:ListView(padding:const EdgeInsets.all(18),children:[
-    TextField(controller:name,decoration:const InputDecoration(labelText:'الاسم')),const SizedBox(height:12),
-    TextField(controller:username,decoration:const InputDecoration(labelText:'اسم المستخدم')),const SizedBox(height:12),
-    TextField(controller:bio,maxLines:4,decoration:const InputDecoration(labelText:'نبذة')),const SizedBox(height:20),
-    FilledButton(onPressed:save,child:const Text('حفظ التغييرات'))
-  ]));
-}
-
-class SettingsPage extends StatelessWidget {
-  const SettingsPage({super.key});
-  @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:const Text('الإعدادات')),body:ListView(children:[
-    ListTile(leading:const Icon(Icons.notifications_outlined),title:const Text('الإشعارات'),onTap:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const NotificationsPage()))),
-    const ListTile(leading:Icon(Icons.lock_outline),title:Text('الخصوصية والأمان'),subtitle:Text('إعدادات الحساب والحماية')),
-    const ListTile(leading:Icon(Icons.language),title:Text('اللغة'),subtitle:Text('العربية')),
-    const ListTile(leading:Icon(Icons.info_outline),title:Text('عن تاج لايف'),subtitle:Text('الإصدار 1.0.0')),
-  ]));
-}
-
-class GamesPage extends StatefulWidget {
-  const GamesPage({super.key});
-  @override State<GamesPage> createState()=>_GamesPageState();
-}
-class _GamesPageState extends State<GamesPage>{
-  bool loading=true; List<Map<String,dynamic>> games=[];
-  @override void initState(){super.initState();TajBackend.client.from('game_sessions').select().order('created_at',ascending:false).limit(30).then((r){games=List<Map<String,dynamic>>.from(r);if(mounted)setState(()=>loading=false);}).catchError((_){if(mounted)setState(()=>loading=false);});}
-  @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:const Text('الألعاب والأحداث')),body:loading?const Center(child:CircularProgressIndicator()):ListView(padding:const EdgeInsets.all(14),children:[
-    const Card(child:ListTile(leading:Icon(Icons.casino,color:gold),title:Text('الألعاب'),subtitle:Text('الألعاب المتاحة داخل الغرف تظهر هنا'))),
-    ...games.map((g)=>Card(color:surface,child:ListTile(leading:const Icon(Icons.emoji_events,color:gold),title:Text(g['game_type']?.toString()??'لعبة'),subtitle:Text('الحالة: ${g['status']??'active'}'))))
-  ]));
-}
-
-class AdminPage extends StatefulWidget {
-  const AdminPage({super.key});
-  @override State<AdminPage> createState()=>_AdminPageState();
-}
-class _AdminPageState extends State<AdminPage>{
-  late Future<List<Map<String,dynamic>>> reports; late Future<List<Map<String,dynamic>>> users;
-  @override void initState(){super.initState();reload();}
-  void reload(){reports=TajBackend.adminReports();users=TajBackend.adminUsers();}
-  Future<void> ban(String id,bool value) async {try{await TajBackend.adminSetUserBanned(id,value);if(mounted)setState(reload);}catch(e){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('تعذر الإجراء: '+e.toString())));}}
-  Future<void> resolve(String id,String status) async {try{await TajBackend.adminResolveReport(id,status);if(mounted)setState(reload);}catch(e){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('تعذر تحديث البلاغ: '+e.toString())));}}
-  @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:const Text('لوحة الإدارة')),body:ListView(padding:const EdgeInsets.all(12),children:[
-    FutureBuilder<List<Map<String,dynamic>>>(future:users,builder:(c,s)=>Card(color:surface,child:ExpansionTile(leading:const Icon(Icons.people,color:gold),title:Text('المستخدمون ('+(s.data?.length??0).toString()+')'),children:(s.data??[]).map((x){final banned=x['is_banned']==true;return ListTile(title:Text(x['display_name']?.toString()??'مستخدم'),subtitle:Text('@'+(x['username']??'').toString()+' • ID '+(x['public_id']??'').toString()),trailing:IconButton(icon:Icon(banned?Icons.lock_open:Icons.block,color:banned?Colors.greenAccent:Colors.redAccent),onPressed:()=>ban(x['id'].toString(),!banned)));}).toList()))),
-    FutureBuilder<List<Map<String,dynamic>>>(future:reports,builder:(c,s)=>Card(color:surface,child:ExpansionTile(leading:const Icon(Icons.report_problem,color:gold),title:Text('البلاغات ('+(s.data?.length??0).toString()+')'),children:(s.data??[]).map((x)=>ListTile(title:Text(x['reason']?.toString()??'بلاغ'),subtitle:Text('الحالة: '+(x['status']??'open').toString()),trailing:PopupMenuButton<String>(onSelected:(v)=>resolve(x['id'].toString(),v),itemBuilder:(_)=>const[PopupMenuItem(value:'reviewing',child:Text('قيد المراجعة')),PopupMenuItem(value:'resolved',child:Text('تم الحل')),PopupMenuItem(value:'rejected',child:Text('مرفوض'))]))).toList()))),
-    ListTile(leading:const Icon(Icons.business,color:royal2),title:const Text('الوكالات'),onTap:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const AgencyPage()))),
-  ]));
-}
-class AgencyPage extends StatefulWidget {
-  const AgencyPage({super.key});
-  @override State<AgencyPage> createState()=>_AgencyPageState();
-}
-class _AgencyPageState extends State<AgencyPage>{
-  late Future<List<Map<String,dynamic>>> future;
-  @override void initState(){super.initState();future=TajBackend.agencies();}
-  Future<void> create() async { final c=TextEditingController(); final ok=await showDialog<bool>(context:context,builder:(_)=>AlertDialog(title:const Text('إنشاء وكالة'),content:TextField(controller:c,decoration:const InputDecoration(labelText:'اسم الوكالة')),actions:[TextButton(onPressed:()=>Navigator.pop(context,false),child:const Text('إلغاء')),FilledButton(onPressed:()=>Navigator.pop(context,true),child:const Text('إنشاء'))])); if(ok!=true||c.text.trim().isEmpty){c.dispose();return;} try{await TajBackend.createAgency(c.text.trim());if(mounted)setState(()=>future=TajBackend.agencies());}catch(e){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('تعذر إنشاء الوكالة: '+e.toString())));}finally{c.dispose();} }
-  @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:const Text('الوكالات'),actions:[IconButton(onPressed:create,icon:const Icon(Icons.add_business,color:gold))]),body:FutureBuilder<List<Map<String,dynamic>>>(future:future,builder:(c,s){if(s.connectionState==ConnectionState.waiting)return const Center(child:CircularProgressIndicator(color:gold));final rows=s.data??const <Map<String,dynamic>>[];return ListView(padding:const EdgeInsets.all(12),children:rows.map((a)=>Card(color:surface,child:ListTile(leading:const CircleAvatar(backgroundColor:royal,child:Icon(Icons.business,color:gold)),title:Text(a['name']?.toString()??'وكالة'),subtitle:Text(a['description']?.toString()??'وكالة تاج لايف'),trailing:FilledButton(onPressed:()=>TajBackend.joinAgency(a['id'].toString()),child:const Text('انضمام')))).toList());}));
-}
-
-class CreatePage extends StatelessWidget {
-  const CreatePage({super.key});
-  @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('إنشاء')),
-    body: ListView(padding: const EdgeInsets.all(16), children: [
-      ListTile(leading: const Icon(Icons.mic, color: gold), title: const Text('إنشاء غرفة صوتية'), subtitle: const Text('8 أو 10 أو 15 مقعداً'), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CreateRoomPage()))),
-      ListTile(leading: const Icon(Icons.auto_awesome, color: royal2), title: const Text('نشر لحظة'), subtitle: const Text('شارك مع مجتمع تاج لايف'), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MomentsPage()))),
-      ListTile(leading: const Icon(Icons.casino, color: gold), title: const Text('الألعاب والأحداث'), subtitle: const Text('جلسات الألعاب والفعاليات'), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const GamesPage()))),
-      ListTile(leading: const Icon(Icons.card_giftcard, color: gold), title: const Text('الهدايا'), subtitle: const Text('استعراض الهدايا'), onTap: () => showModalBottomSheet(context: context, backgroundColor: surface, builder: (_) => const GiftSheet())),
-    ]),
-  );
-}
-
-class CreateRoomPage extends StatefulWidget {
-  const CreateRoomPage({super.key});
-  @override State<CreateRoomPage> createState() => _CreateRoomPageState();
-}
-class _CreateRoomPageState extends State<CreateRoomPage> {
-  final name = TextEditingController(text: 'غرفتي الملكية');
-  int seats = 8;
-  @override void dispose() { name.dispose(); super.dispose(); }
-  @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('إنشاء غرفة')),
-    body: ListView(padding: const EdgeInsets.all(18), children: [
-      TextField(controller: name, decoration: const InputDecoration(labelText: 'اسم الغرفة', border: OutlineInputBorder())),
-      const SizedBox(height: 18),
-      const Text('عدد المقاعد', style: TextStyle(fontWeight: FontWeight.bold)),
-      const SizedBox(height: 8),
-      SegmentedButton<int>(
-        segments: const [ButtonSegment(value: 8, label: Text('8')), ButtonSegment(value: 10, label: Text('10')), ButtonSegment(value: 15, label: Text('15'))],
-        selected: {seats},
-        onSelectionChanged: (v) => setState(() => seats = v.first),
-      ),
-      const SizedBox(height: 20),
-      FilledButton(
-        onPressed: () async {
-          final roomName = name.text.trim().isEmpty ? 'غرفتي الملكية' : name.text.trim();
-          if (TajBackend.user == null) {
-            if (!context.mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('سجّل الدخول أولاً لإنشاء غرفة حقيقية')),
-            );
-            return;
-          }
-          try {
-            final roomId = await TajBackend.createRoom(name: roomName, seatCount: seats);
-            if (!context.mounted) return;
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (_) => RoomPage(name: roomName, roomId: roomId, seatCount: seats)),
-            );
-          } catch (e) {
-            if (!context.mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('تعذر إنشاء الغرفة: $e')),
-            );
-          }
-        },
-        child: const Text('إنشاء ودخول'),
-      ),
-    ]),
-  );
-}
-
-class PrivateChatPage extends StatefulWidget {
-  final String userId;
-  final String title;
-  const PrivateChatPage({super.key, required this.userId, required this.title});
-  @override State<PrivateChatPage> createState()=>_PrivateChatPageState();
-}
-class _PrivateChatPageState extends State<PrivateChatPage>{
-  final controller=TextEditingController();
-  @override void dispose(){controller.dispose();super.dispose();}
-  Future<void> send() async {
-    final text=controller.text.trim();
-    if(text.isEmpty)return;
-    try{await TajBackend.sendPrivateMessage(widget.userId,text);controller.clear();}catch(e){if(mounted)ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('تعذر إرسال الرسالة: $e')));}
-  }
-  @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:Text(widget.title)),body:Column(children:[
-    Expanded(child:StreamBuilder<List<Map<String,dynamic>>>(stream:TajBackend.privateMessages(widget.userId),builder:(c,s){
-      final rows=s.data??[];
-      return ListView.builder(reverse:true,padding:const EdgeInsets.all(12),itemCount:rows.length,itemBuilder:(_,i){
-        final r=rows[rows.length-1-i]; final mine=r['sender_id']==TajBackend.user?.id;
-        return Align(alignment:mine?Alignment.centerRight:Alignment.centerLeft,child:Container(margin:const EdgeInsets.symmetric(vertical:4),padding:const EdgeInsets.all(12),decoration:BoxDecoration(color:mine?royal2:surface,borderRadius:BorderRadius.circular(16)),child:Text(r['body']?.toString()??'')));
-      });
-    })),
-    SafeArea(child:Row(children:[Expanded(child:TextField(controller:controller,decoration:const InputDecoration(hintText:'اكتب رسالة...'))),IconButton(onPressed:send,icon:const Icon(Icons.send,color:gold))]))
-  ]));
-}
-
-class MessagesPage extends StatefulWidget {
-  const MessagesPage({super.key});
-  @override State<MessagesPage> createState()=>_MessagesPageState();
-}
-class _MessagesPageState extends State<MessagesPage>{
-  late Future<List<Map<String,dynamic>>> future;
-  @override void initState(){super.initState();future=TajBackend.conversations();}
-  @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:const Text('الرسائل')),body:FutureBuilder<List<Map<String,dynamic>>>(future:future,builder:(c,s){
-    if(s.connectionState==ConnectionState.waiting)return const Center(child:CircularProgressIndicator());
-    final rows=s.data??[]; final ids=<String>{};
-    for(final r in rows){final other=r['sender_id']==TajBackend.user?.id?r['recipient_id']:r['sender_id'];if(other!=null)ids.add(other.toString());}
-    if(ids.isEmpty)return const Center(child:Text('لا توجد محادثات بعد'));
-    return ListView(children:ids.map((id)=>FutureBuilder<Map<String,dynamic>?>(future:TajBackend.profileById(id),builder:(c,p){
-      final profile=p.data??{}; final title=profile['display_name']?.toString()??'مستخدم تاج لايف';
-      return ListTile(leading:const CircleAvatar(child:Icon(Icons.person)),title:Text(title),subtitle:Text('ID: ${profile['public_id']??id}'),onTap:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>PrivateChatPage(userId:id,title:title))));
-    })).toList());
-  }));
-}
-
-class WalletPage extends StatefulWidget {
-  const WalletPage({super.key});
-  @override State<WalletPage> createState() => _WalletPageState();
-}
-class _WalletPageState extends State<WalletPage> {
-  late Future<Map<String, dynamic>?> _wallet;
-  @override void initState() { super.initState(); _wallet = TajBackend.myWallet(); }
-
-  Future<void> _topup(int coins, int amountEgp) async {
-    final email = TajBackend.user?.email;
-    final phone = TajBackend.user?.phone;
-    if (email == null || email.isEmpty || phone == null || phone.isEmpty) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('أضف رقم هاتف صالحًا للحساب أولًا لإتمام الدفع')));
-      return;
-    }
-    try {
-      await TajPaymentService.startTopUp(
-        amountMinor: amountEgp * 100,
-        coins: coins,
-        email: email,
-        phone: phone,
-      );
-    } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تعذر بدء الدفع: $e')));
-    }
+    );
   }
 
-  @override Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('المحفظة')),
-    body: FutureBuilder<Map<String, dynamic>?>(
-      future: _wallet,
-      builder: (context, s) {
-        final p = s.data ?? const <String,dynamic>{};
-        final coins = (p['coins'] as num?)?.toInt() ?? 0;
-        final diamonds = (p['diamonds'] as num?)?.toInt() ?? 0;
-        return ListView(padding: const EdgeInsets.all(18), children: [
-          Container(padding: const EdgeInsets.all(24), decoration: BoxDecoration(borderRadius: BorderRadius.circular(25), gradient: const LinearGradient(colors: [Color(0xFF5C2097), Color(0xFF24102F)]), border: Border.all(color: gold.withOpacity(.25))),
-            child: Column(children: [
-              const Text('رصيد العملات', style: TextStyle(color: Colors.white70)),
-              const SizedBox(height: 7),
-              Text('$coins 🪙', style: const TextStyle(fontSize: 35, fontWeight: FontWeight.w900, color: goldSoft)),
-              const SizedBox(height: 8),
-              Text('$diamonds 💎', style: const TextStyle(fontSize: 18, color: Colors.white70)),
-            ]),
-          ),
-          const SizedBox(height: 20),
-          for (final x in const [[100,10],[550,50],[1250,100],[2750,200],[6000,400]])
-            Card(color: surface, child: ListTile(
-              title: Text(x[0].toString() + ' 🪙'),
-              subtitle: Text(x[1].toString() + ' جنيه مصري'),
-              trailing: FilledButton(onPressed: () => _topup(x[0], x[1]), style: FilledButton.styleFrom(backgroundColor: royal), child: const Text('شراء')),
-            )),
-          const SizedBox(height: 15),
-          const Text('الدفع يتم عبر Paymob، وتأكيد إضافة العملات لا يحدث إلا بعد وصول webhook موثّق.', style: TextStyle(color: Colors.white54)),
-        ]);
+  Widget _giftItem(BuildContext context, String name, String cost) {
+    return ElevatedButton(
+      onPressed: () {
+        Navigator.pop(context);
+        setState(() => currentBroadcast = "🎁 User1 sent $name ($cost) to King Seat! 🚀 Distribution Triggered.");
       },
-    ),
-  );
-}
+      child: Column(children: [Text(name, style: const TextStyle(fontSize: 24)), Text(cost, style: const TextStyle(fontSize: 10))]),
+    );
+  }
 
-class ProfilePage extends StatefulWidget {
-  const ProfilePage({super.key});
-  @override State<ProfilePage> createState() => _ProfilePageState();
-}
-class _ProfilePageState extends State<ProfilePage> {
-  late Future<Map<String, dynamic>?> _profile;
-  @override void initState() { super.initState(); _profile = TajBackend.myProfile(); }
-  @override Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: FutureBuilder<Map<String, dynamic>?>(
-          future: _profile,
-          builder: (context, snapshot) {
-            final p = snapshot.data ?? const <String, dynamic>{};
-            final name = (p['display_name'] ?? 'مستخدم تاج لايف').toString();
-            final publicId = (p['public_id'] ?? '—').toString();
-            final country = (p['country'] ?? 'مصر').toString();
-            final bio = (p['bio'] ?? '').toString();
-            return ListView(children: [
-              Container(
-                height: 300,
-                decoration: const BoxDecoration(gradient: LinearGradient(
-                  begin: Alignment.topCenter, end: Alignment.bottomCenter,
-                  colors: [Color(0xFF4A1A69), bg],
-                )),
-                child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Container(width: 112, height: 112, decoration: BoxDecoration(
-                    shape: BoxShape.circle, border: Border.all(color: gold, width: 2),
-                    gradient: const LinearGradient(colors: [royal2, royal]),
-                  ), child: const Icon(Icons.person, size: 60)),
-                  const SizedBox(height: 12),
-                  Text(name, style: const TextStyle(fontSize: 25, fontWeight: FontWeight.w900)),
-                  Text('ID: $publicId • $country', style: const TextStyle(color: Colors.white60)),
-                  if (bio.isNotEmpty) Padding(padding: const EdgeInsets.all(10), child: Text(bio, textAlign: TextAlign.center)),
-                ]),
+  void _showSettingsPanel(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.all(20),
+          height: 180,
+          child: Column(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.card_giftcard, color: Colors.amber),
+                title: const Text('Collect 5% Room Reward'),
+                onTap: () => Navigator.pop(context),
               ),
-              ListTile(leading: const Icon(Icons.account_balance_wallet, color: gold), title: const Text('المحفظة'),
-                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const WalletPage()))),
-              const ListTile(leading: Icon(Icons.emoji_events, color: gold), title: Text('الإنجازات')),
-              const ListTile(leading: Icon(Icons.card_giftcard, color: royal2), title: Text('الهدايا والشارات')),
-              ListTile(leading: const Icon(Icons.workspace_premium, color: gold), title: const Text('VIP والمستوى'), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const VipPage()))),
-              const ListTile(leading: Icon(Icons.shield_outlined), title: Text('الحساب والأمان')),
-              const ListTile(leading: Icon(Icons.settings), title: Text('الإعدادات')),
-              ListTile(leading: const Icon(Icons.logout, color: Colors.redAccent), title: const Text('تسجيل الخروج'),
-                onTap: () => TajBackend.signOut()),
-            ]);
-          },
+              ListTile(
+                leading: const Icon(Icons.color_lens, color: Colors.green),
+                title: const Text('Change Room Theme Wallpaper'),
+                onTap: () => Navigator.pop(context),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showGamePanel(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => Container(
+        height: 150,
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            const Text('Start Mini-Games inside Room'),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                setState(() => currentBroadcast = "🏆 Victory! King Rahul won 500 Coins in Ludo Master!");
+              },
+              child: const Text('Launch Ludo Classic'),
+            )
+          ],
         ),
       ),
     );
