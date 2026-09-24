@@ -9,17 +9,17 @@ const gold = Color(0xFFFFC857);
 const goldSoft = Color(0xFFFFE4A3);
 
 void main() {
-  runApp(const RoyalVoiceApp());
+  runApp(const PharaohPartyApp());
 }
 
-class RoyalVoiceApp extends StatelessWidget {
-  const RoyalVoiceApp({super.key});
+class PharaohPartyApp extends StatelessWidget {
+  const PharaohPartyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'صوت يجمعنا',
+      title: 'فرعون بارتي',
       theme: ThemeData(
         brightness: Brightness.dark,
         scaffoldBackgroundColor: bg,
