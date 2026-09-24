@@ -1,24 +1,10 @@
-# فرعون بارتي — Pharaoh Party
+# فرعون بارتي 👑
 
-منصة غرف دردشة صوتية عربية بواجهة ملكية، مع تطبيق Android مبني بـ Flutter.
+واجهة React/Vite عربية RTL لمنصة غرف الدردشة الصوتية، بهوية فرعونية ملكية.
 
 ## التشغيل
-```bash
 npm install
-npm start
-```
+npm run dev
 
-افتح `http://localhost:3000`.
-
-## Android
-التطبيق الموجود في `mobile/` هو مصدر نسخة Android. لبناء APK:
-```bash
-cd mobile
-flutter pub get
-flutter build apk --release
-```
-
-## البنية
-الواجهة في `public/`، لوحة الإدارة في `admin/`، بيانات CMS في `data/`، SQL في `database/`، والخادم في `server.js`.
-
-لا تضع مفاتيح LiveKit السرية أو Supabase service-role داخل المستودع أو التطبيق.
+## البناء
+npm run build

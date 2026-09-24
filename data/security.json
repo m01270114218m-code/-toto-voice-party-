@@ -1,1 +1,0 @@
-{"rateLimits":{"roomMessages":{"max":8,"windowMs":10000},"search":{"max":30,"windowMs":60000}},"blockedContent":["spam","malicious-links"],"financialRules":["server-side-balance-check","atomic-deduction","idempotency-key","ledger-reference"],"ageSafety":{"enabled":true,"policy":"platform-rules-required"},"audit":{"enabled":true,"retainDays":365}}

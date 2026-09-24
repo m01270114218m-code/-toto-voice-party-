@@ -1,26 +1,6 @@
 {
-  "name": "royal-voice-professional",
-  "version": "4.2.0-full-clean",
-  "private": true,
-  "description": "Royal Voice full-clean 3D voice social platform with Supabase, LiveKit, Socket.IO, CMS and Capacitor Android",
-  "main": "server.js",
-  "scripts": {
-    "start": "node server.js",
-    "dev": "node --watch server.js",
-    "android:add": "npx cap add android",
-    "android:sync": "npx cap sync android",
-    "android:open": "npx cap open android",
-    "android:build": "npx cap sync android && cd android && ./gradlew assembleDebug",
-    "android:release": "npx cap sync android && cd android && ./gradlew assembleRelease"
-  },
-  "dependencies": {
-    "socket.io": "^4.8.1",
-    "@capacitor/core": "^7.4.3"
-  },
-  "devDependencies": {
-    "@capacitor/cli": "^7.4.3",
-    "@capacitor/android": "^7.4.3",
-    "typescript": "^5.9.2"
-  },
-  "engines": {"node": ">=20"}
+  "name":"pharaoh-party","private":true,"version":"1.0.0","type":"module",
+  "scripts":{"dev":"vite --port=3000 --host=0.0.0.0","build":"vite build","preview":"vite preview","lint":"tsc --noEmit"},
+  "dependencies":{"lucide-react":"^0.546.0","react":"^19.0.1","react-dom":"^19.0.1","vite":"^8.3.0","@vitejs/plugin-react":"^6.1.1","typescript":"^5.9.2"},
+  "devDependencies":{}
 }
