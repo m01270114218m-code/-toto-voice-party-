@@ -1,0 +1,51 @@
+name: Build Pharaoh Party Android APK
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build web app
+        run: npm run build
+
+      - name: Create Android project
+        run: npx cap add android
+
+      - name: Sync web app into Android
+        run: npx cap sync android
+
+      - name: Configure microphone permissions
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("android/app/src/main/AndroidManifest.xml")
+          s = p.read_text()
+          marker = '<manifest xmlns:android="http://schemas.android.com/apk/res/android">'
+          perms = '''    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+              <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />'''
+          if "android.permission.RECORD_AUDIO" not in s:
+              s = s.replace(marker, marker + "\n" + perms)
+          p.write_text(s)
+          PY
+
+      - name: Build installable debug APK
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Pharaoh-Party-Android-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
