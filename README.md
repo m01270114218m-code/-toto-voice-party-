@@ -1,6 +1,6 @@
-# Royal Voice 4.2 — Full Clean
+# فرعون بارتي — Pharaoh Party
 
-منصة اجتماعية صوتية 3D مبنية على Supabase + LiveKit + Socket.IO + Capacitor.
+منصة غرف دردشة صوتية عربية بواجهة ملكية، مع تطبيق Android مبني بـ Flutter.
 
 ## التشغيل
 ```bash
@@ -11,11 +11,11 @@ npm start
 افتح `http://localhost:3000`.
 
 ## Android
-اضبط `window.ROYAL_API_BASE` في `public/mobile-config.js` على عنوان HTTPS عام للخادم، ثم:
+التطبيق الموجود في `mobile/` هو مصدر نسخة Android. لبناء APK:
 ```bash
-npm run android:add
-npm run android:sync
-npm run android:build
+cd mobile
+flutter pub get
+flutter build apk --release
 ```
 
 ## البنية
