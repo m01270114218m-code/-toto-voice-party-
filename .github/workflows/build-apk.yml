@@ -1,4 +1,4 @@
-name: Build New Royal Voice Flutter APK
+name: Build Pharaoh Party Android APK
 
 on:
   workflow_dispatch:
@@ -10,12 +10,12 @@ permissions:
 
 jobs:
   build:
-    name: Build NEW Royal Voice template release APK
+    name: Build Pharaoh Party release APK
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
     steps:
-      - name: Checkout NEW template
+      - name: Checkout Pharaoh Party
         uses: actions/checkout@v5
 
       - name: Setup Flutter
@@ -24,13 +24,13 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Verify NEW template files
+      - name: Verify Pharaoh Party files
         working-directory: mobile
         run: |
           test -f pubspec.yaml
           test -f lib/main.dart
-          grep -q "RoyalVoiceApp" lib/main.dart
-          grep -q "الغرفة الملكية" lib/main.dart
+          grep -q "PharaohPartyApp" lib/main.dart
+          grep -q "فرعون بارتي" lib/main.dart
 
       - name: Get Flutter packages
         working-directory: mobile
@@ -43,11 +43,11 @@ jobs:
             flutter create --platforms=android .
           fi
 
-      - name: Build NEW template release APK
+      - name: Build Pharaoh Party release APK
         working-directory: mobile
         run: flutter build apk --release
 
-      - name: Verify NEW template APK
+      - name: Verify Pharaoh Party APK
         run: |
           test -s mobile/build/app/outputs/flutter-apk/app-release.apk
           ls -lh mobile/build/app/outputs/flutter-apk/app-release.apk
@@ -55,7 +55,7 @@ jobs:
       - name: Upload NEW template APK
         uses: actions/upload-artifact@v4
         with:
-          name: VoiceRoom-Royal-NEW-TEMPLATE-release-apk
+          name: Pharaoh-Party-release-apk
           path: mobile/build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
           retention-days: 30
