@@ -159,7 +159,7 @@ jobs:
           from pathlib import Path
           pkg=Path('android/app/src/main/java/com/royalvoice/app')
           pkg.mkdir(parents=True,exist_ok=True)
-          (pkg/'RoyalVoiceNative.java').write_text('''package com.royalvoice.app;\n\nimport android.content.Context;\nimport io.livekit.android.LiveKit;\n\npublic final class RoyalVoiceNative {\n  private RoyalVoiceNative() {}\n  public static void init(Context context) { LiveKit.init(context.getApplicationContext()); }\n}\n''')
+          (pkg/'RoyalVoiceNative.java').write_text('''package com.royalvoice.app;\n\nimport android.content.Context;\nimport io.livekit.android.LiveKit;\n\npublic final class RoyalVoiceNative {\n  private RoyalVoiceNative() {}\n  public static void init(Context context) { LiveKit.INSTANCE.init(context.getApplicationContext()); }\n}\n''')
           p=Path('android/app/src/main/java/com/royalvoice/app/MainActivity.java')
           if p.exists():
               s=p.read_text()
