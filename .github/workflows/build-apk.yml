@@ -1,211 +1,61 @@
-name: Build Android APK
+name: Build New Royal Voice Flutter APK
 
 on:
   workflow_dispatch:
   push:
-    branches: [main, royal-voice-fixed]
+    branches: [main]
 
 permissions:
   contents: read
 
 jobs:
   build:
-    name: Build Royal Voice debug APK
+    name: Build NEW Royal Voice template release APK
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 30
 
     steps:
-      - name: Checkout source
+      - name: Checkout NEW template
         uses: actions/checkout@v5
 
-      - name: Set up Node.js 22
-        uses: actions/setup-node@v5
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
         with:
-          node-version: 22
+          channel: stable
+          cache: true
 
-      - name: Install Node dependencies
-        run: npm install --no-audit --no-fund
-
-      - name: Set up JDK 21
-        uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: '21'
-
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v4
-        with:
-          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
-
-      - name: Generate Android project
-        run: npx cap add android
-
-      - name: Add media permissions for WebRTC voice
+      - name: Verify NEW template files
+        working-directory: mobile
         run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          p=Path("android/app/src/main/AndroidManifest.xml")
-          s=p.read_text()
-          marker='<uses-permission android:name="android.permission.RECORD_AUDIO" />'
-          if marker not in s:
-              s=s.replace('<application ', marker+'\n    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />\n    <uses-permission android:name="android.permission.CAMERA" />\n    <application ',1)
-          p.write_text(s)
-          PY
+          test -f pubspec.yaml
+          test -f lib/main.dart
+          grep -q "RoyalVoiceApp" lib/main.dart
+          grep -q "الغرفة الملكية" lib/main.dart
 
+      - name: Get Flutter packages
+        working-directory: mobile
+        run: flutter pub get
 
-      - name: Install native media build tools
+      - name: Create Android project if missing
+        working-directory: mobile
         run: |
-          sudo apt-get update -y
-          sudo apt-get install -y ffmpeg
-
-      - name: Add native LiveKit Android SDK
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          for file in ["android/capacitor.settings.gradle","android/settings.gradle","android/build.gradle"]:
-              p=Path(file)
-              if not p.exists(): continue
-              s=p.read_text()
-              if 'https://jitpack.io' in s: continue
-              if file.endswith("capacitor.settings.gradle"):
-                  s=s.replace('mavenCentral()','mavenCentral()\n        maven { url "https://jitpack.io" }',1)
-              elif file.endswith("build.gradle") and file != "android/app/build.gradle":
-                  s=s.replace('allprojects {\n    repositories {','allprojects {\n    repositories {\n        maven { url "https://jitpack.io" }',1)
-              p.write_text(s)
-          p=Path("android/app/build.gradle")
-          s=p.read_text()
-          if 'io.livekit:livekit-android:2.29.0' not in s:
-              s=s.replace('dependencies {', 'dependencies {\n    implementation "io.livekit:livekit-android:2.29.0"', 1)
-          if 'androidx.multidex:multidex:2.0.1' not in s:
-              s=s.replace('dependencies {', 'dependencies {\n    implementation "androidx.multidex:multidex:2.0.1"', 1)
-          # Enable multidex inside the generated module's existing defaultConfig.
-          # Do not create a second defaultConfig block: AGP expects one module configuration.
-          if 'multiDexEnabled true' not in s:
-              marker='defaultConfig {'
-              if marker in s:
-                  s=s.replace(marker, marker+'\n        multiDexEnabled true', 1)
-              else:
-                  raise SystemExit('Generated android/app/build.gradle has no defaultConfig block')
-          p.write_text(s)
-          PY
-
-      - name: Generate premium 3D visual asset pack
-        run: |
-          python3 -m pip install --disable-pip-version-check --quiet pillow
-          python3 - <<'PY'
-          from pathlib import Path
-          from PIL import Image, ImageDraw, ImageFilter
-          import math, random
-          out=Path('android/app/src/main/assets/royal-assets'); out.mkdir(parents=True, exist_ok=True)
-          W=2048; H=2048
-          names=['home','login','discover','room','vip','levels','gifts','games','wallet','profile','messages','events','tribes','agencies','settings','notifications','leaderboard','store','friends','search','night','royal','palace','desert','oasis','neon','festival','lounge','crown','moon','stars','velvet']
-          for i,name in enumerate(names):
-              random.seed(9100+i)
-              im=Image.new('RGB',(W,H)); px=im.load()
-              c1=((8+i*3)%35, (5+i*2)%20, (25+i*5)%70)
-              c2=((45+i*4)%100, (8+i*3)%35, (85+i*7)%150)
-              for y in range(H):
-                  t=y/(H-1)
-                  for x in range(W):
-                      r=math.hypot(x-W*.5,y-H*.32)/W
-                      glow=max(0,1-r*1.65)
-                      n=random.randint(-3,3)
-                      px[x,y]=(max(0,int(c1[0]*(1-t)+c2[0]*t+glow*24+n)),max(0,int(c1[1]*(1-t)+c2[1]*t+glow*8+n)),max(0,int(c1[2]*(1-t)+c2[2]*t+glow*55+n)))
-              d=ImageDraw.Draw(im,'RGBA')
-              # Arabic-night ornamental geometry
-              for k in range(10):
-                  r=180+k*95+(i%5)*12
-                  box=(W//2-r,H//2-r,W//2+r,H//2+r)
-                  d.ellipse(box,outline=(245,198,91,35+k*2),width=5)
-              for a in range(0,360,30):
-                  ang=math.radians(a+(i%7)*3); x=W//2+700*math.cos(ang); y=H//2+700*math.sin(ang)
-                  d.ellipse((x-35,y-35,x+35,y+35),fill=(179,76,255,35),outline=(245,198,91,80),width=4)
-              for _ in range(140):
-                  x=random.randrange(W); y=random.randrange(H); s=random.choice([2,3,4,6,9])
-                  d.ellipse((x-s,y-s,x+s,y+s),fill=(255,255,255,random.randrange(25,100)))
-              im=im.filter(ImageFilter.GaussianBlur(0.25))
-              im.save(out/(name+'.png'),compress_level=3)
-          total=sum(p.stat().st_size for p in out.glob('*.png'))
-          print(f'Royal asset pack: {total/1024/1024:.1f} MiB')
-          if total < 55*1024*1024:
-              raise SystemExit('Asset pack is below the 55 MiB target')
-          PY
-
-      - name: Generate animated media pack
-        run: |
-          command -v ffmpeg
-          python3 - <<'PY'
-          from pathlib import Path
-          import subprocess
-          out=Path('android/app/src/main/assets/royal-assets')
-          videos=['intro','room','gifts','events','vip','games']
-          for name in videos:
-              src=out/f'{name if (out/f"{name}.png").exists() else "home"}.png'
-              dst=out/f'{name}.mp4'
-              subprocess.run([
-                'ffmpeg','-y','-loglevel','error','-loop','1','-i',str(src),
-                '-vf',"scale=720:1280,zoompan=z='min(zoom+0.0012,1.12)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=150:s=720x1280:fps=25",
-                '-t','6','-an','-c:v','libx264','-preset','medium','-crf','24','-pix_fmt','yuv420p','-movflags','+faststart',str(dst)
-              ],check=True)
-          total=sum(p.stat().st_size for p in out.rglob('*') if p.is_file())
-          print(f'Royal media pack: {total/1024/1024:.1f} MiB')
-          PY
-          mkdir -p android/app/src/main/res/drawable-nodpi
-          cp android/app/src/main/assets/royal-assets/{home,room,vip,gifts,events,games}.png android/app/src/main/res/drawable-nodpi/
-
-      - name: Initialize native LiveKit runtime
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          pkg=Path('android/app/src/main/java/com/royalvoice/app')
-          pkg.mkdir(parents=True,exist_ok=True)
-          (pkg/'RoyalVoiceNative.java').write_text('''package com.royalvoice.app;\n\nimport android.content.Context;\nimport io.livekit.android.LiveKit;\n\npublic final class RoyalVoiceNative {\n  private RoyalVoiceNative() {}\n  public static void init(Context context) { LiveKit.INSTANCE.init(context.getApplicationContext()); }\n}\n''')
-          p=Path('android/app/src/main/java/com/royalvoice/app/MainActivity.java')
-          if p.exists():
-              s=p.read_text()
-              if 'RoyalVoiceNative.init' not in s:
-                  s=s.replace('public class MainActivity extends BridgeActivity {','public class MainActivity extends BridgeActivity {\n    @Override\n    public void onCreate(android.os.Bundle savedInstanceState) {\n        super.onCreate(savedInstanceState);\n        RoyalVoiceNative.init(this);\n    }')
-                  p.write_text(s)
-          PY
-
-      - name: Sync Capacitor Android
-        run: npx cap sync android
-
-      - name: Prepare Gradle
-        run: chmod +x android/gradlew
-
-      - name: Build debug APK
-        working-directory: android
-        run: ./gradlew assembleDebug --no-daemon --stacktrace
-
-      - name: Verify APK exists and inspect Android internals
-        run: |
-          test -s android/app/build/outputs/apk/debug/app-debug.apk
-          mkdir -p apk-inspection
-          unzip -l android/app/build/outputs/apk/debug/app-debug.apk > apk-inspection/apk-files.txt
-          unzip -qq android/app/build/outputs/apk/debug/app-debug.apk 'classes*.dex' -d apk-inspection/dex
-          echo "DEX files:"
-          find apk-inspection/dex -type f -name 'classes*.dex' -printf '%f\n' | sort
-          echo "DEX count: $(find apk-inspection/dex -type f -name 'classes*.dex' | wc -l)"
-          echo "APK size bytes: $(stat -c%s android/app/build/outputs/apk/debug/app-debug.apk)"
-          echo "APK size MiB: $(du -m android/app/build/outputs/apk/debug/app-debug.apk | cut -f1)"
-          echo "Asset count: $(find android/app/src/main/assets -type f | wc -l)"
-          echo "Resource count: $(find android/app/src/main/res -type f | wc -l)"
-          test -d apk-inspection/dex
-          if [ "$(find apk-inspection/dex -type f -name 'classes*.dex' | wc -l)" -lt 2 ]; then
-            echo "NOTE: multidex is enabled, but D8 did not need a second DEX for this build."
+          if [ ! -f android/gradlew ]; then
+            flutter create --platforms=android .
           fi
 
-      - name: Upload APK inspection
-        uses: actions/upload-artifact@v4
-        with:
-          name: royal-voice-apk-inspection
-          path: apk-inspection
-          if-no-files-found: error
+      - name: Build NEW template release APK
+        working-directory: mobile
+        run: flutter build apk --release
 
-      - name: Upload debug APK
+      - name: Verify NEW template APK
+        run: |
+          test -s mobile/build/app/outputs/flutter-apk/app-release.apk
+          ls -lh mobile/build/app/outputs/flutter-apk/app-release.apk
+
+      - name: Upload NEW template APK
         uses: actions/upload-artifact@v4
         with:
-          name: royal-voice-debug-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: VoiceRoom-Royal-NEW-TEMPLATE-release-apk
+          path: mobile/build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
+          retention-days: 30
