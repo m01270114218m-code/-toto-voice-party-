@@ -12,8 +12,21 @@ const screens={
  vip:{title:'VIP',render:()=>`<section class="screen"><header class="top">‹ <h3>VIP</h3>♡</header><div class="vip-card"><div class="brand-orb"></div><h1>تهانينا!</h1><p>لقد وصلت إلى المستوى الذهبي</p><div class="badge">VIP 5</div><p>مكافآت حصرية • إطار مميز • دخول غرف VIP</p><button class="primary">ممتاز</button></div></section>`},
  recharge:{title:'شحن العملات',render:()=>`<section class="screen recharge"><header class="top">‹ <h3>شحن العملات</h3>⋮</header><div class="container"><div class="hero"><h2>اختر الباقة المناسبة</h2><p>اشحن رصيدك واستخدم العملات للهدايا والعناصر</p></div>${[['50','0.99'],['250','5.99'],['550','9.99'],['1,250','19.99'],['2,750','49.99']].map((p,i)=>`<div class="pack"><span class="diamond">◆ ${p[0]}</span><span>${p[1]} $</span><button class="secondary">اختيار</button></div>`).join('')}<button class="primary">تابع الدفع</button></div></section>`}
 };
+const PUBLIC_API='https://hgsfdkopbbwbtvsrbpoi.supabase.co/functions/v1/admin-control';
+const appData={rooms:[],gifts:[],settings:{}};
+async function loadLiveAppData(){
+  try{
+    const r=await fetch(PUBLIC_API,{method:'POST',headers:{'Content-Type':'application/json','apikey':'sb_publishable_-4jjp6J2GLVPkv8AW95TZQ_DLOEIWOm'},body:JSON.stringify({action:'public_state'})});
+    const j=await r.json();
+    if(!r.ok) throw new Error(j.error||'تعذر تحميل بيانات التطبيق');
+    appData.rooms=j.rooms||[]; appData.gifts=j.gifts||[]; appData.settings=j.settings||{};
+  }catch(e){console.warn('Live app data:',e.message)}
+}
+screens.home.render=()=>`<section class="screen"><div class="orn a"></div><header class="top"><div><b>فرعون بارتي</b><div class="sub">${appData.settings.global_announcement||'غرف صوتية حية'}</div></div><div><button class="icon-btn">🔔</button><button class="icon-btn">⌕</button></div></header><div class="container"><div class="hero"><h2>الغرف الصوتية الحية</h2><p>${appData.rooms.length?'غرف حقيقية قادمة من قاعدة البيانات':'لا توجد غرف حية حالياً'}</p></div><div class="room-grid">${appData.rooms.map(r=>`<article class="room-card" data-room-id="${r.id}"><div class="cover" style="${r.cover_url?'background-image:url('+r.cover_url+')':''}"><span class="live">LIVE</span></div><b>${escApp(r.name)}</b><br><small>${escApp(r.country_code||'')} • ${r.viewer_count||0} مستمع • ${r.seat_count||8} مقاعد</small></article>`).join('')||'<div class="section"><p class="muted">أنشئ غرفة من لوحة التحكم وستظهر هنا تلقائياً.</p></div>'}</div></div><nav class="bottom-nav"><span class="navitem active">⌂<br>الرئيسية</span><span class="navitem">◉<br>الرسائل</span><button class="plus">+</button><span class="navitem">◌<br>الغرف</span><span class="navitem">☰<br>المزيد</span></nav></section>`;
+screens.gifts.render=()=>`<section class="screen"><header class="top">‹ <h3>الهدايا</h3> ♡</header><div class="container"><div class="hero"><p>الهدايا الفعالة من قاعدة البيانات</p></div><div class="gift-grid">${appData.gifts.map(g=>`<div class="gift"><div class="emoji">${escApp(g.emoji||'🎁')}</div><b>${escApp(g.name)}</b><br><small>● ${g.coin_price||0} Coins • ◆ ${g.diamond_value||0}</small></div>`).join('')||'<div class="section"><p class="muted">لا توجد هدايا فعالة.</p></div>'}</div></div></section>`;
+function escApp(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
 function getState(){try{return JSON.parse(localStorage.getItem('voice-room-state')||'{}')}catch{return {}}}
 function saveState(s){localStorage.setItem('voice-room-state',JSON.stringify(s))}
 function applyCustom(html,key){const st=getState();const c=st[key]||{};if(c.text) Object.entries(c.text).forEach(([id,val])=>{html=html.replaceAll(`data-edit="${id}"`,`data-edit="${id}">${val}`)});return html}
 function renderScreen(key,target=document.getElementById('app')){const obj=screens[key]||screens.home;target.innerHTML=applyCustom(obj.render(),key)}
-const initial=location.pathname.endsWith('editor.html')?'home':'splash';renderScreen(initial);
+const initial=location.pathname.endsWith('editor.html')?'home':'splash'; renderScreen(initial); loadLiveAppData().then(()=>{if(initial==='splash'){setTimeout(()=>renderScreen('home'),500)}else renderScreen(initial)});
