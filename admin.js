@@ -10,7 +10,7 @@ const attr = v => esc(v);
 const api = async (action, extra={}) => {
   const headers = {"Content-Type":"application/json","apikey":window.__ADMIN_KEY || ""};
   if (token) headers.Authorization = "Bearer " + token;
-  const res = await fetch(API,{method:"POST",headers,body:JSON.stringify({action,...extra})});
+  const res = await fetch(API,{method:"POST",headers,body:JSON.stringify({action,session_token:token,...extra})});
   const text = await res.text();
   let data;
   try { data = JSON.parse(text); } catch { data = {error:text || "استجابة غير صالحة من الخادم"}; }
@@ -261,7 +261,7 @@ async function storage(){
 function settings(){
   const s=state.settings||{};
   setContent('<div class="grid2"><div class="section"><h3>إعدادات التشغيل</h3>'+selectField("وضع الصيانة","set_maint",[{value:"false",label:"متوقف"},{value:"true",label:"مفعل"}],String(!!s.maintenance_mode))+textarea("الإعلان العام","set_ann",s.global_announcement||"")+'<div class="actions"><button class="btn primary" data-action="save-settings">حفظ الإعدادات</button></div></div>'+
-  '<div class="section"><h3>حالة لوحة التحكم</h3><p class="ok">● متصل بـ Supabase</p><p class="muted">التغييرات تحفظ مباشرة في admin_control_settings وتظهر للتطبيق عبر public_state.</p><div class="actions"><button class="btn ghost" data-action="reload">إعادة تحميل البيانات</button></div></div></div>');
+  '<div class="section"><h3>حالة لوحة التحكم</h3><p class="ok">● متصل بـ Supabase</p><p class="muted">التغييرات تحفظ مباشرة في admin_app_settings وadmin_control_settings وتظهر للتطبيق الفعلي عبر public_state.</p><div class="actions"><button class="btn ghost" data-action="reload">إعادة تحميل البيانات</button></div></div></div>');
 }
 async function saveSettings(){await api("save_settings",{patch:{maintenance_mode:$("#f_set_maint").value==="true",global_announcement:$("#f_set_ann").value}});toast("تم حفظ الإعدادات");await loadDashboard();}
 
