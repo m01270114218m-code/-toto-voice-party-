@@ -16,7 +16,7 @@
     <p>إدارة التطبيق والبيانات الحقيقية</p>
     <form id="loginForm">
       <input id="password" type="password" autocomplete="current-password" placeholder="كلمة مرور الإدارة" required>
-      <button class="btn primary wide" type="submit">دخول إلى اللوحة</button>
+      <button id="loginBtn" class="btn primary wide" type="submit">دخول إلى اللوحة</button>
     </form>
     <div id="loginMsg" class="message"></div>
   </div>
@@ -50,7 +50,7 @@
 
 <div id="modal" class="modal hidden" role="dialog" aria-modal="true">
   <div class="modal-box">
-    <button id="closeModal" class="modal-close" aria-label="إغلاق">×</button>
+    <button id="closeModal" class="modal-close" aria-label="إغلاق" onclick="closeModal()">×</button>
     <div id="modalContent"></div>
   </div>
 </div>
