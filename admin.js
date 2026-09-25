@@ -268,7 +268,7 @@ $("#nav")?.addEventListener("click",e=>{
   b.classList.add("active");
   renderPage(b.dataset.page);
 });
-$("#content")?.addEventListener("click",async e=>{
+document.addEventListener("click",async e=>{
   const pageBtn=e.target.closest("[data-page]");
   if(pageBtn && !pageBtn.matches("#nav button")){navTo(pageBtn.dataset.page);return;}
   const b=e.target.closest("[data-action]");if(!b)return;
