@@ -55,6 +55,25 @@
   </div>
 </div>
 <div id="toast" class="toast hidden"></div>
-<script src="admin.js"></script>
+<script>
+window.__ADMIN_API="https://hgsfdkopbbwbtvsrbpoi.supabase.co/functions/v1/admin-control";
+window.__ADMIN_KEY="sb_publishable_-4jjp6J2GLVPkv8AW95TZQ_DLOEIWOm";
+document.getElementById("loginForm").addEventListener("submit",async function(e){
+ e.preventDefault();
+ const msg=document.getElementById("loginMsg"),btn=document.getElementById("loginBtn");
+ btn.disabled=true;msg.textContent="جارٍ التحقق...";
+ try{
+  const r=await fetch(window.__ADMIN_API,{method:"POST",headers:{"Content-Type":"application/json","apikey":window.__ADMIN_KEY},body:JSON.stringify({action:"login",password:document.getElementById("password").value})});
+  const j=await r.json().catch(()=>({error:"الخادم أعاد استجابة غير صالحة"}));
+  if(!r.ok||!j.token)throw new Error(j.error||"فشل تسجيل الدخول");
+  sessionStorage.setItem("pharaoh_admin_token",j.token);
+  document.getElementById("login").classList.add("hidden");
+  document.getElementById("app").classList.remove("hidden");
+  if(typeof window.load==="function") await window.load();
+  else location.reload();
+ }catch(err){msg.textContent=err.message||"تعذر الاتصال بالخادم";}finally{btn.disabled=false}
+});
+</script>
+<script src="admin.js?v=20260925-01"></script>
 </body>
 </html>
