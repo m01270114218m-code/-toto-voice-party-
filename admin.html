@@ -2,44 +2,59 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>فرعون بارتي — لوحة التحكم</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#070812">
+<title>فرعون بارتي | مركز التحكم</title>
 <link rel="stylesheet" href="admin.css">
 </head>
 <body>
-<div id="login" class="login-shell">
+<div id="login" class="login">
   <div class="login-card">
-    <div class="crown">♛</div>
-    <h1>فرعون بارتي</h1>
-    <p>لوحة الإدارة والتحكم الكامل</p>
-    <input id="password" type="password" placeholder="كلمة مرور لوحة التحكم" autocomplete="current-password">
-    <button id="loginBtn" class="primary">دخول آمن</button>
-    <div id="loginMsg" class="msg"></div>
+    <div class="logo">♛</div>
+    <div class="eyebrow">PHARAOH PARTY</div>
+    <h1>مركز التحكم</h1>
+    <p>إدارة التطبيق والبيانات الحقيقية</p>
+    <form id="loginForm">
+      <input id="password" type="password" autocomplete="current-password" placeholder="كلمة مرور الإدارة" required>
+      <button class="btn primary wide" type="submit">دخول إلى اللوحة</button>
+    </form>
+    <div id="loginMsg" class="message"></div>
   </div>
 </div>
-<div id="app" class="hidden">
+
+<div id="app" class="app hidden">
   <aside class="sidebar">
-    <div class="brand"><span>♛</span><div><b>فرعون بارتي</b><small>CONTROL CENTER</small></div></div>
+    <div class="brand"><span>♛</span><div><strong>فرعون بارتي</strong><small>CONTROL CENTER</small></div></div>
     <nav id="nav">
-      <button data-page="dashboard" class="active">◈ <span>الرئيسية</span></button>
-      <button data-page="users">♟ <span>المستخدمون</span><em id="usersBadge">0</em></button>
-      <button data-page="rooms">⌂ <span>الغرف</span><em id="roomsBadge">0</em></button>
-      <button data-page="agencies">♜ <span>الوكالات</span></button>
-      <button data-page="gifts">🎁 <span>الهدايا</span></button>
-      <button data-page="vip">👑 <span>VIP</span></button>
-      <button data-page="topups">◆ <span>الشحن</span><em id="topupsBadge">0</em></button>
-      <button data-page="reports">⚑ <span>البلاغات</span><em id="reportsBadge">0</em></button>
-      <button data-page="bans">⛔ <span>الحظر</span></button>
-      <button data-page="settings">⚙ <span>الإعدادات</span></button>
+      <button class="nav-item active" data-page="dashboard">⌂<span>الرئيسية</span></button>
+      <button class="nav-item" data-page="users">♟<span>المستخدمون</span><b id="usersBadge">0</b></button>
+      <button class="nav-item" data-page="rooms">◈<span>الغرف</span><b id="roomsBadge">0</b></button>
+      <button class="nav-item" data-page="agencies">♜<span>الوكالات</span></button>
+      <button class="nav-item" data-page="gifts">🎁<span>الهدايا</span></button>
+      <button class="nav-item" data-page="vip">👑<span>VIP</span></button>
+      <button class="nav-item" data-page="topups">◆<span>الشحن</span><b id="topupsBadge">0</b></button>
+      <button class="nav-item" data-page="reports">⚑<span>البلاغات</span><b id="reportsBadge">0</b></button>
+      <button class="nav-item" data-page="bans">⛔<span>الحظر</span></button>
+      <button class="nav-item" data-page="settings">⚙<span>الإعدادات</span></button>
     </nav>
     <button id="logout" class="logout">↪ تسجيل الخروج</button>
   </aside>
   <main class="main">
-    <header class="topbar"><div><h2 id="pageTitle">الرئيسية</h2><span id="status">متصل بقاعدة البيانات</span></div><button id="refresh" class="ghost">↻ تحديث</button></header>
+    <header class="topbar">
+      <div><h2 id="pageTitle">الرئيسية</h2><div id="connection"><i></i> متصل بقاعدة البيانات</div></div>
+      <div class="top-actions"><button id="refresh" class="btn ghost">↻ تحديث</button></div>
+    </header>
     <section id="content"></section>
   </main>
 </div>
-<div id="modal" class="modal hidden"><div class="modal-box"><button class="close" onclick="closeModal()">×</button><div id="modalContent"></div></div></div>
+
+<div id="modal" class="modal hidden" role="dialog" aria-modal="true">
+  <div class="modal-box">
+    <button id="closeModal" class="modal-close" aria-label="إغلاق">×</button>
+    <div id="modalContent"></div>
+  </div>
+</div>
+<div id="toast" class="toast hidden"></div>
 <script src="admin.js"></script>
 </body>
 </html>
