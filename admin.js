@@ -55,8 +55,7 @@ async function saveVip(id){let benefits={};try{benefits=JSON.parse($("#f_v_benef
 async function deleteVip(id){if(!confirm("حذف مستوى VIP؟"))return;await api("delete_vip",{id});await loadDashboard();toast("تم حذف مستوى VIP")}
 function settings(){const s=state.settings||{};setContent('<div class="section"><h3>إعدادات التطبيق</h3><label>وضع الصيانة<select id="set_maint"><option value="false">متوقف</option><option value="true">مفعل</option></select></label><label>الإعلان العام<textarea id="set_ann">'+esc(s.global_announcement||"")+'</textarea></label><button class="primary" onclick="saveSettings()">حفظ الإعدادات</button></div>');$("#set_maint").value=String(!!s.maintenance_mode)}
 async function saveSettings(){await api("save_settings",{patch:{maintenance_mode:$("#set_maint").value==="true",global_announcement:$("#set_ann").value}});await loadDashboard();toast("تم حفظ الإعدادات")}
-$("#loginBtn").onclick=async()=>{const msg=$("#loginMsg");msg.textContent="";try{const j=await api("login",{password:$("#password").value});token=j.token;sessionStorage.setItem("pharaoh_admin_token",token);$("#login").classList.add("hidden");$("#app").classList.remove("hidden");await loadDashboard()}catch(e){msg.textContent=e.message}};
-$("#password").addEventListener("keydown",e=>{if(e.key==="Enter")$("#loginBtn").click()});
+window.loadDashboard=loadDashboard;
 $("#nav").addEventListener("click",e=>{const b=e.target.closest("button[data-page]");if(!b)return;document.querySelectorAll("#nav button").forEach(x=>x.classList.remove("active"));b.classList.add("active");renderPage(b.dataset.page)});
 $("#refresh").onclick=async()=>{try{await loadDashboard();toast("تم تحديث البيانات")}catch(e){if(e.message.includes("الجلسة")){sessionStorage.removeItem("pharaoh_admin_token");location.reload()}else toast(e.message)}};
 $("#logout").onclick=async()=>{try{await api("logout")}catch{}sessionStorage.removeItem("pharaoh_admin_token");location.reload()};
