@@ -71,9 +71,9 @@ window.loadDashboard=loadDashboard;
 
 function renderPage(page){
   currentPage=page||"dashboard";
-  const titles={dashboard:"الرئيسية",users:"إدارة المستخدمين",rooms:"إدارة الغرف",agencies:"الوكالات",gifts:"الهدايا",vip:"إدارة VIP",topups:"الشحن والدفعات",reports:"البلاغات",bans:"الحظر",settings:"إعدادات التطبيق"};
+  const titles={dashboard:"الرئيسية",users:"إدارة المستخدمين",rooms:"إدارة الغرف",agencies:"الوكالات",gifts:"الهدايا",vip:"إدارة VIP",topups:"الشحن والدفعات",reports:"البلاغات",bans:"الحظر",settings:"إعدادات التطبيق",storage:"مكتبة الصور والملفات"};
   if($("#pageTitle")) $("#pageTitle").textContent=titles[currentPage]||currentPage;
-  const views={dashboard,users,rooms,agencies,gifts,vip,topups,reports,bans,settings};
+  const views={dashboard,users,rooms,agencies,gifts,vip,topups,reports,bans,settings,storage};
   try { (views[currentPage]||dashboard)(); } catch(e) {
     console.error(e);
     setContent('<div class="section error-panel"><h3 class="bad">حدث خطأ في هذا القسم</h3><p>'+esc(e.message||e)+'</p></div>');
@@ -249,6 +249,15 @@ function bans(){
 }
 async function quickUnban(pid){await api("unban_user",{public_id:Number(pid)});toast("تم فك الحظر");await loadDashboard();}
 
+async function storage(){
+  setContent('<div class="section"><div class="section-head"><div><h3>مكتبة الصور والملفات الحقيقية</h3><p class="muted">المحتوى التالي يُقرأ مباشرة من Supabase Storage المستخدم بواسطة التطبيق.</p></div><button class="mini" data-action="reload-storage">↻ تحديث</button></div><div id="storageGrid" class="cards"><div class="skeleton"></div></div></div>');
+  try{
+    const data=await api("storage_assets");
+    const all=Object.entries(data.buckets||{});
+    const html=all.map(([bucket,items])=>'<div class="section"><div class="section-head"><h3>'+esc(bucket)+' <span class="muted">('+items.length+')</span></h3></div><div class="asset-grid">'+(items.length?items.map(x=>'<a class="asset-card" href="'+attr(x.url)+'" target="_blank" rel="noopener"><img src="'+attr(x.url)+'" loading="lazy" onerror="this.style.display=\'none\'"><div><b>'+esc(x.name)+'</b><small>'+esc(x.updated_at||x.created_at||"")+'</small></div></a>').join(""):'<div class="empty">لا توجد ملفات في هذا التخزين.</div>')+'</div></div>').join("");
+    setContent(html||'<div class="section"><h3>لا توجد ملفات تخزين حالياً</h3></div>');
+  }catch(e){setContent('<div class="section error-panel"><h3 class="bad">تعذر قراءة التخزين</h3><p>'+esc(e.message||e)+'</p><button class="btn primary" data-action="reload-storage">إعادة المحاولة</button></div>');}
+}
 function settings(){
   const s=state.settings||{};
   setContent('<div class="grid2"><div class="section"><h3>إعدادات التشغيل</h3>'+selectField("وضع الصيانة","set_maint",[{value:"false",label:"متوقف"},{value:"true",label:"مفعل"}],String(!!s.maintenance_mode))+textarea("الإعلان العام","set_ann",s.global_announcement||"")+'<div class="actions"><button class="btn primary" data-action="save-settings">حفظ الإعدادات</button></div></div>'+
@@ -275,6 +284,7 @@ document.addEventListener("click",async e=>{
   const a=b.dataset.action;
   try{
     if(a==="reload"){await loadDashboard();toast("تم تحديث البيانات");}
+    else if(a==="reload-storage"){await storage();toast("تم تحديث مكتبة التخزين");}
     else if(a==="create-user")openCreateUser();
     else if(a==="save-create-user")await createUser();
     else if(a==="edit-user")openEditUser(b.dataset.id);
