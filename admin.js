@@ -1,347 +1,75 @@
-const API = window.__ADMIN_API || "https://hgsfdkopbbwbtvsrbpoi.supabase.co/functions/v1/admin-control";
-let token = sessionStorage.getItem("pharaoh_admin_token") || "";
-let state = {users:[],rooms:[],agencies:[],gifts:[],topups:[],reports:[],bans:[],vipLevels:[],settings:{},counts:{}};
-let currentPage = "dashboard";
-
-const $ = (s,root=document) => root.querySelector(s);
-const $$ = (s,root=document) => [...root.querySelectorAll(s)];
-const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;" }[c]));
-const attr = v => esc(v);
-const api = async (action, extra={}) => {
-  const headers = {"Content-Type":"application/json","apikey":window.__ADMIN_KEY || ""};
-  if (token) headers.Authorization = "Bearer " + token;
-  const res = await fetch(API,{method:"POST",headers,body:JSON.stringify({action,session_token:token,...extra})});
-  const text = await res.text();
-  let data;
-  try { data = JSON.parse(text); } catch { data = {error:text || "استجابة غير صالحة من الخادم"}; }
-  if (!res.ok) throw new Error(data.error || ("HTTP " + res.status));
-  return data;
-};
-
-function toast(message,type="ok"){
-  const el = document.createElement("div");
-  el.className = "toast " + type;
-  el.textContent = message;
-  document.body.appendChild(el);
-  setTimeout(()=>el.remove(),2600);
-}
-function setContent(html){ const el=$("#content"); if(el) el.innerHTML=html; }
-function openModal(html){
-  $("#modalContent").innerHTML=html;
-  $("#modal").classList.remove("hidden");
-}
-function closeModal(){ $("#modal").classList.add("hidden"); $("#modalContent").innerHTML=""; }
-window.closeModal = closeModal;
-
-function field(label,key,value="",type="text",extraClass=""){
-  return '<label class="'+extraClass+'">'+esc(label)+'<input id="f_'+esc(key)+'" type="'+esc(type)+'" value="'+attr(value)+'"></label>';
-}
-function textarea(label,key,value="",extraClass=""){
-  return '<label class="'+extraClass+'">'+esc(label)+'<textarea id="f_'+esc(key)+'">'+esc(value)+'</textarea></label>';
-}
-function selectField(label,key,options,value="",extraClass=""){
-  return '<label class="'+extraClass+'">'+esc(label)+'<select id="f_'+esc(key)+'">'+options.map(o=>'<option value="'+attr(o.value)+'" '+(String(o.value)===String(value)?"selected":"")+'>'+esc(o.label)+'</option>').join("")+'</select></label>';
-}
-function emptyRow(cols,message="لا توجد بيانات حالياً"){
-  return '<tr><td colspan="'+cols+'" class="empty"><div class="empty-icon">◈</div><strong>'+esc(message)+'</strong><small>يمكنك إنشاء أول عنصر من زر الإضافة بالأعلى.</small></td></tr>';
-}
-
-async function loadDashboard(){
-  setContent('<div class="section"><h3>جاري تحميل مركز التحكم...</h3><div class="skeleton"></div></div>');
-  try{
-    const data = await api("dashboard");
-    state = Object.assign({users:[],rooms:[],agencies:[],gifts:[],topups:[],reports:[],bans:[],vipLevels:[],settings:{},counts:{}},data||{});
-    for(const k of ["users","rooms","agencies","gifts","topups","reports","bans","vipLevels"]) if(!Array.isArray(state[k])) state[k]=[];
-    state.counts=state.counts||{};
-    if($("#usersBadge")) $("#usersBadge").textContent=state.counts.users??0;
-    if($("#roomsBadge")) $("#roomsBadge").textContent=state.counts.rooms??0;
-    if($("#topupsBadge")) $("#topupsBadge").textContent=state.counts.pendingTopups??0;
-    if($("#reportsBadge")) $("#reportsBadge").textContent=state.counts.openReports??0;
-    if($("#connection")) $("#connection").innerHTML='<i></i> متصل بقاعدة البيانات';
-    renderPage(currentPage);
-    return data;
-  }catch(e){
-    console.error("admin dashboard",e);
-    if($("#connection")) $("#connection").innerHTML='<i class="bad"></i> خطأ في الاتصال';
-    setContent('<div class="section error-panel"><h3 class="bad">تعذر تحميل بيانات لوحة التحكم</h3><p>'+esc(e.message||e)+'</p><div class="actions"><button class="btn primary" data-action="reload">إعادة المحاولة</button></div></div>');
-    throw e;
-  }
-}
-window.loadDashboard=loadDashboard;
-
-function renderPage(page){
-  currentPage=page||"dashboard";
-  const titles={dashboard:"الرئيسية",users:"إدارة المستخدمين",rooms:"إدارة الغرف",agencies:"الوكالات",gifts:"الهدايا",vip:"إدارة VIP",topups:"الشحن والدفعات",reports:"البلاغات",bans:"الحظر",settings:"إعدادات التطبيق",storage:"مكتبة الصور والملفات"};
-  if($("#pageTitle")) $("#pageTitle").textContent=titles[currentPage]||currentPage;
-  const views={dashboard,users,rooms,agencies,gifts,vip,topups,reports,bans,settings,storage};
-  try { (views[currentPage]||dashboard)(); } catch(e) {
-    console.error(e);
-    setContent('<div class="section error-panel"><h3 class="bad">حدث خطأ في هذا القسم</h3><p>'+esc(e.message||e)+'</p></div>');
-  }
-}
-window.renderPage=renderPage;
-
-function dashboard(){
-  const cards=[
-    ["users","المستخدمون"],["rooms","الغرف الحية"],["agencies","الوكالات"],["gifts","الهدايا"],
-    ["pendingTopups","طلبات شحن معلقة"],["openReports","بلاغات مفتوحة"],["activeBans","حظر نشط"],["vipLevels","مستويات VIP"]
-  ];
-  const users=state.users.slice(0,6);
-  const gifts=state.gifts.slice(0,6);
-  setContent(
-    '<div class="cards">'+cards.map(([k,l])=>'<div class="card"><small>'+l+'</small><div class="metric">'+(state.counts[k]??0)+'</div><span class="muted">بيانات حقيقية</span></div>').join("")+'</div>'+
-    '<div class="grid2">'+
-      '<div class="section"><div class="section-head"><h3>آخر المستخدمين</h3><button class="mini" data-page="users">عرض الكل</button></div><div class="table-wrap"><table><thead><tr><th>ID</th><th>الاسم</th><th>المستوى</th><th>Coins</th><th>الحالة</th></tr></thead><tbody>'+
-      (users.length?users.map(u=>'<tr><td>'+esc(u.public_id)+'</td><td>'+esc(u.display_name||u.username||"بدون اسم")+'</td><td>'+esc(u.level)+'</td><td>'+esc(u.coins)+'</td><td>'+(u.is_banned?'<span class="pill bad">محظور</span>':'<span class="pill ok">نشط</span>')+'</td></tr>').join(""):emptyRow(5))+
-      '</tbody></table></div></div>'+
-      '<div class="section"><div class="section-head"><h3>الهدايا</h3><button class="mini" data-page="gifts">إدارة</button></div><div class="table-wrap"><table><thead><tr><th></th><th>الاسم</th><th>Coins</th><th>Diamonds</th><th>الحالة</th></tr></thead><tbody>'+
-      (gifts.length?gifts.map(g=>'<tr><td>'+esc(g.emoji||"🎁")+'</td><td>'+esc(g.name_ar||g.name)+'</td><td>'+esc(g.coins??g.coin_price)+'</td><td>'+esc(g.diamonds??g.diamond_value)+'</td><td>'+(g.data?.is_active===false?'<span class="pill bad">معطلة</span>':'<span class="pill ok">فعالة</span>')+'</td></tr>').join(""):emptyRow(5))+
-      '</tbody></table></div></div>'+
-    '</div>'+
-    '<div class="section"><div class="section-head"><div><h3>مركز العمليات</h3><p class="muted">كل الأزرار التالية تنفذ على قاعدة البيانات الفعلية.</p></div></div><div class="actions">'+
-      '<button class="btn primary" data-action="create-user">+ مستخدم</button><button class="btn primary" data-action="create-room">+ غرفة</button><button class="btn primary" data-action="create-agency">+ وكالة</button><button class="btn primary" data-action="create-gift">+ هدية</button><button class="btn primary" data-action="create-vip">+ VIP</button><button class="btn ghost" data-page="settings">إعدادات التطبيق</button>'+
-    '</div></div>'
-  );
-}
-
-function users(){
-  setContent('<div class="toolbar"><button class="btn primary" data-action="create-user">+ إنشاء مستخدم</button><input id="userSearch" placeholder="بحث بالاسم أو ID أو الهاتف..."><button class="btn ghost" data-action="reload">↻ تحديث</button></div>'+
-    '<div class="section"><div class="section-head"><h3>المستخدمون ('+state.users.length+')</h3></div><div class="table-wrap"><table><thead><tr><th>ID</th><th>المستخدم</th><th>المستوى</th><th>VIP</th><th>Coins</th><th>Diamonds</th><th>الحالة</th><th>إجراءات</th></tr></thead><tbody id="usersBody"></tbody></table></div></div>');
-  drawUsers(state.users);
-}
-function drawUsers(list){
-  const body=$("#usersBody"); if(!body)return;
-  body.innerHTML=list.length?list.map(u=>'<tr><td>'+esc(u.public_id)+'</td><td><b>'+esc(u.display_name||"—")+'</b><br><small class="muted">@'+esc(u.username||"—")+'</small></td><td>'+esc(u.level??0)+'</td><td>VIP '+esc(u.vip_level??0)+'</td><td>'+esc(u.coins??0)+'</td><td>'+esc(u.diamonds??0)+'</td><td>'+(u.is_banned?'<span class="pill bad">محظور</span>':'<span class="pill ok">نشط</span>')+'</td><td><button class="mini" data-action="edit-user" data-id="'+attr(u.id)+'">تعديل</button><button class="mini '+(u.is_banned?"success":"danger")+'" data-action="toggle-ban" data-id="'+attr(u.id)+'">'+(u.is_banned?"فك الحظر":"حظر")+'</button></td></tr>').join(""):emptyRow(8);
-}
-function openCreateUser(){
-  openModal('<h3>إنشاء مستخدم حقيقي</h3><div class="form-grid">'+field("الاسم","cu_name","مستخدم جديد")+field("اسم المستخدم","cu_username","user"+Date.now())+field("البريد الإلكتروني","cu_email","user"+Date.now()+"@pharaoh.local")+field("كلمة المرور","cu_password","Pharaoh@123456")+field("Coins","cu_coins",0,"number")+field("Diamonds","cu_dia",0,"number")+'</div><div class="actions"><button class="btn primary" data-action="save-create-user">إنشاء المستخدم</button></div>');
-}
-async function createUser(){
-  const j=await api("create_user",{email:$("#f_cu_email").value.trim(),password:$("#f_cu_password").value,profile:{display_name:$("#f_cu_name").value,username:$("#f_cu_username").value,coins:Number($("#f_cu_coins").value||0),diamonds:Number($("#f_cu_dia").value||0)}});
-  closeModal(); toast("تم إنشاء المستخدم فعلياً"); await loadDashboard(); if(j.temporaryPassword) alert("كلمة المرور: "+j.temporaryPassword);
-}
-function openEditUser(id){
-  const u=state.users.find(x=>x.id===id); if(!u)return;
-  openModal('<h3>تعديل المستخدم #'+esc(u.public_id)+'</h3><div class="form-grid">'+field("الاسم","u_name",u.display_name)+field("اسم المستخدم","u_username",u.username)+field("الهاتف","u_phone",u.phone)+field("الدولة","u_country",u.country_code)+field("المستوى","u_level",u.level,"number")+field("VIP","u_vip",u.vip_level,"number")+field("Coins","u_coins",u.coins,"number")+field("Diamonds","u_dia",u.diamonds,"number")+textarea("النبذة","u_bio",u.bio,"full")+'</div><div class="actions"><button class="btn primary" data-action="save-user" data-id="'+attr(id)+'">حفظ التغييرات</button></div>');
-}
-async function saveUser(id){
-  const patch={display_name:$("#f_u_name").value,username:$("#f_u_username").value,phone:$("#f_u_phone").value,country_code:$("#f_u_country").value,level:Number($("#f_u_level").value||0),vip_level:Number($("#f_u_vip").value||0),coins:Number($("#f_u_coins").value||0),diamonds:Number($("#f_u_dia").value||0),bio:$("#f_u_bio").value};
-  await api("update_user",{id,patch}); closeModal(); toast("تم حفظ المستخدم"); await loadDashboard();
-}
-async function toggleBan(id){
-  const u=state.users.find(x=>x.id===id); if(!u)return;
-  if(u.is_banned){ await api("unban_user",{user_id:u.id,public_id:u.public_id}); toast("تم فك حظر المستخدم"); }
-  else {
-    const reason=prompt("سبب الحظر","مخالفة قواعد الاستخدام"); if(reason===null)return;
-    const hours=prompt("مدة الحظر بالساعات، اتركها فارغة للحظر الدائم",""); if(hours===null)return;
-    await api("ban_user",{user_id:u.id,public_id:u.public_id,reason,hours}); toast("تم حظر المستخدم");
-  }
-  await loadDashboard();
-}
-
-function rooms(){
-  setContent('<div class="toolbar"><button class="btn primary" data-action="create-room">+ إنشاء غرفة</button><input id="roomSearch" placeholder="بحث في الغرف..."><button class="btn ghost" data-action="reload">↻ تحديث</button></div>'+
-    '<div class="section"><div class="section-head"><h3>الغرف ('+state.rooms.length+')</h3></div><div class="table-wrap"><table><thead><tr><th>ID</th><th>الغرفة</th><th>المضيف</th><th>التصنيف</th><th>المشاهدون</th><th>الحالة</th><th>إجراءات</th></tr></thead><tbody id="roomsBody"></tbody></table></div></div>');
-  drawRooms(state.rooms);
-}
-function drawRooms(list){
-  const body=$("#roomsBody");if(!body)return;
-  body.innerHTML=list.length?list.map(r=>'<tr><td>'+esc(r.display_id||r.id)+'</td><td><b>'+esc(r.title||r.name)+'</b><br><small class="muted">'+esc(r.description)+'</small></td><td>'+esc(r.host_name||"—")+'</td><td>'+esc(r.category||"—")+'</td><td>'+esc(r.listeners_count??r.viewer_count??0)+'</td><td>'+(r.is_closed?'<span class="pill bad">مغلقة</span>':r.is_locked?'<span class="pill">مقفلة</span>':'<span class="pill ok">مفتوحة</span>')+'</td><td><button class="mini" data-action="edit-room" data-id="'+attr(r.id)+'">تعديل</button><button class="mini danger" data-action="delete-room" data-id="'+attr(r.id)+'">حذف</button></td></tr>').join(""):emptyRow(7);
-}
-function openCreateRoom(){
-  const opts=state.users.map(u=>({value:u.id,label:(u.display_name||u.username||"مستخدم")+" #"+u.public_id}));
-  openModal('<h3>إنشاء غرفة حقيقية</h3><div class="form-grid">'+field("اسم الغرفة","r_name","غرفة جديدة")+field("التصنيف","r_cat","general")+field("المقاعد","r_seats",8,"number")+textarea("الوصف","r_desc","")+(opts.length?selectField("المالك","r_owner",opts,opts[0].value):'<div class="section"><p class="bad">لا يوجد مستخدم مالك حالياً.</p></div>')+'</div><div class="actions"><button class="btn primary" data-action="save-create-room" '+(opts.length?"":"disabled")+'>إنشاء الغرفة</button></div>');
-}
-async function createRoom(){
-  await api("create_room",{room:{name:$("#f_r_name").value,category:$("#f_r_cat").value,description:$("#f_r_desc").value,seat_count:Number($("#f_r_seats").value||8),owner_id:$("#f_r_owner")?.value||null}});
-  closeModal();toast("تم إنشاء الغرفة فعلياً");await loadDashboard();
-}
-function openEditRoom(id){
-  const r=state.rooms.find(x=>x.id===id);if(!r)return;
-  openModal('<h3>تعديل الغرفة</h3><div class="form-grid">'+field("العنوان","er_title",r.title||r.name)+field("التصنيف","er_cat",r.category)+field("المقاعد","er_seats",r.seat_count||8,"number")+textarea("الوصف","er_desc",r.description)+field("رابط الغلاف","er_cover",r.room_cover||"","text","full")+'</div><div class="actions"><button class="btn primary" data-action="save-room" data-id="'+attr(id)+'">حفظ</button><button class="btn ghost" data-action="toggle-room" data-id="'+attr(id)+'" data-closed="'+(!r.is_closed)+'">'+(r.is_closed?"فتح الغرفة":"إغلاق الغرفة")+'</button><button class="btn ghost" data-action="lock-room" data-id="'+attr(id)+'" data-locked="'+(!r.is_locked)+'">'+(r.is_locked?"فتح القفل":"قفل الغرفة")+'</button></div>');
-}
-async function saveRoom(id){
-  await api("update_room",{id,patch:{title:$("#f_er_title").value,category:$("#f_er_cat").value,seat_count:Number($("#f_er_seats").value||8),description:$("#f_er_desc").value,room_cover:$("#f_er_cover").value}});
-  closeModal();toast("تم حفظ الغرفة");await loadDashboard();
-}
-async function toggleRoom(id,closed){await api("update_room",{id,patch:{is_closed:closed==="true"||closed===true}});closeModal();toast("تم تحديث حالة الغرفة");await loadDashboard();}
-async function lockRoom(id,locked){await api("update_room",{id,patch:{is_locked:locked==="true"||locked===true}});closeModal();toast("تم تحديث قفل الغرفة");await loadDashboard();}
-async function deleteRoom(id){if(!confirm("حذف الغرفة نهائياً؟"))return;await api("delete_room",{id});toast("تم حذف الغرفة");await loadDashboard();}
-
-function agencies(){
-  setContent('<div class="toolbar"><button class="btn primary" data-action="create-agency">+ إنشاء وكالة</button><button class="btn ghost" data-action="reload">↻ تحديث</button></div>'+
-    '<div class="section"><div class="section-head"><h3>الوكالات ('+state.agencies.length+')</h3></div><div class="table-wrap"><table><thead><tr><th>ID</th><th>الاسم</th><th>المالك</th><th>الوصف</th><th>تاريخ الإنشاء</th><th>إجراءات</th></tr></thead><tbody>'+
-    (state.agencies.length?state.agencies.map(a=>'<tr><td>'+esc(a.id)+'</td><td><b>'+esc(a.name)+'</b></td><td>'+esc(a.owner_name||a.owner_id||"—")+'</td><td>'+esc(a.description||"—")+'</td><td>'+esc(a.created_at?new Date(a.created_at).toLocaleString("ar-EG"):"—")+'</td><td><button class="mini" data-action="edit-agency" data-id="'+attr(a.id)+'">تعديل</button><button class="mini danger" data-action="delete-agency" data-id="'+attr(a.id)+'">حذف</button></td></tr>').join(""):emptyRow(6))+
-    '</tbody></table></div></div>');
-}
-function openCreateAgency(){
-  const opts=state.users.map(u=>({value:u.id,label:(u.display_name||u.username||"مستخدم")+" #"+u.public_id}));
-  openModal('<h3>إنشاء وكالة حقيقية</h3><div class="form-grid">'+field("اسم الوكالة","a_name","وكالة جديدة")+textarea("الوصف","a_desc","")+(opts.length?selectField("المالك","a_owner",opts,opts[0].value):'<p class="bad">يجب وجود مستخدم أولاً.</p>')+'</div><div class="actions"><button class="btn primary" data-action="save-create-agency" '+(opts.length?"":"disabled")+'>إنشاء الوكالة</button></div>');
-}
-async function createAgency(){await api("create_agency",{agency:{name:$("#f_a_name").value,description:$("#f_a_desc").value,owner_id:$("#f_a_owner")?.value||null}});closeModal();toast("تم إنشاء الوكالة");await loadDashboard();}
-function openEditAgency(id){
-  const a=state.agencies.find(x=>x.id===id);if(!a)return;
-  openModal('<h3>تعديل الوكالة</h3><div class="form-grid">'+field("الاسم","ea_name",a.name)+textarea("الوصف","ea_desc",a.description||"")+'</div><div class="actions"><button class="btn primary" data-action="save-agency" data-id="'+attr(id)+'">حفظ</button></div>');
-}
-async function saveAgency(id){await api("update_agency",{id,patch:{name:$("#f_ea_name").value,description:$("#f_ea_desc").value}});closeModal();toast("تم حفظ الوكالة");await loadDashboard();}
-async function deleteAgency(id){if(!confirm("حذف الوكالة نهائياً؟"))return;await api("delete_agency",{id});toast("تم حذف الوكالة");await loadDashboard();}
-
-function gifts(){
-  setContent('<div class="toolbar"><button class="btn primary" data-action="create-gift">+ إضافة هدية</button><button class="btn ghost" data-action="reload">↻ تحديث</button></div>'+
-    '<div class="section"><div class="section-head"><h3>الهدايا ('+state.gifts.length+')</h3></div><div class="table-wrap"><table><thead><tr><th>الأيقونة</th><th>الاسم</th><th>Coins</th><th>Diamonds</th><th>الحالة</th><th>إجراءات</th></tr></thead><tbody>'+
-    (state.gifts.length?state.gifts.map(g=>'<tr><td>'+esc(g.emoji||"🎁")+'</td><td><b>'+esc(g.name_ar||g.name)+'</b></td><td>'+esc(g.coins??g.coin_price??0)+'</td><td>'+esc(g.diamonds??g.diamond_value??0)+'</td><td>'+(g.data?.is_active===false?'<span class="pill bad">معطلة</span>':'<span class="pill ok">فعالة</span>')+'</td><td><button class="mini" data-action="edit-gift" data-id="'+attr(g.id)+'">تعديل</button><button class="mini danger" data-action="delete-gift" data-id="'+attr(g.id)+'">حذف</button></td></tr>').join(""):emptyRow(6))+
-    '</tbody></table></div></div>');
-}
-function openCreateGift(){openEditGift(null);}
-function openEditGift(id){
-  const g=id?state.gifts.find(x=>x.id===id):{name_ar:"هدية جديدة",coins:100,diamonds:0,custom_image:""};
-  if(!g)return;
-  openModal('<h3>'+(id?"تعديل هدية":"إضافة هدية")+'</h3><div class="form-grid">'+field("الاسم","g_name",g.name_ar||g.name)+field("Coins","g_coins",g.coins??g.coin_price??100,"number")+field("Diamonds","g_dia",g.diamonds??g.diamond_value??0,"number")+field("رابط الصورة","g_img",g.custom_image||g.image_url||"","text","full")+field("رابط الأنيميشن","g_anim",g.animation_url||"","text","full")+'</div><div class="actions"><button class="btn primary" data-action="save-gift" data-id="'+attr(id||"new")+'">حفظ</button></div>');
-}
-async function saveGift(id){
-  const patch={name_ar:$("#f_g_name").value,coins:Number($("#f_g_coins").value||0),diamonds:Number($("#f_g_dia").value||0),custom_image:$("#f_g_img").value,animation_url:$("#f_g_anim").value};
-  if(id==="new") await api("create_gift",{gift:{name:patch.name_ar,emoji:"🎁",image_url:patch.custom_image||null,animation_url:patch.animation_url||null,coins:patch.coins,diamonds:patch.diamonds,sort_order:0}});
-  else await api("update_gift",{id,patch});
-  closeModal();toast("تم حفظ الهدية");await loadDashboard();
-}
-async function deleteGift(id){if(!confirm("حذف الهدية نهائياً؟"))return;await api("delete_gift",{id});toast("تم حذف الهدية");await loadDashboard();}
-
-function vip(){
-  setContent('<div class="toolbar"><button class="btn primary" data-action="create-vip">+ مستوى VIP</button><button class="btn ghost" data-action="reload">↻ تحديث</button></div>'+
-    '<div class="section"><div class="section-head"><h3>مستويات VIP ('+state.vipLevels.length+')</h3></div><div class="table-wrap"><table><thead><tr><th>المستوى</th><th>الاسم</th><th>السعر</th><th>الحالة</th><th>إجراءات</th></tr></thead><tbody>'+
-    (state.vipLevels.length?state.vipLevels.map(v=>'<tr><td>'+esc(v.level)+'</td><td>'+esc(v.name_ar)+'</td><td>'+esc(v.price_coins)+' Coins</td><td>'+(v.is_active?'<span class="pill ok">فعال</span>':'<span class="pill bad">معطل</span>')+'</td><td><button class="mini" data-action="edit-vip" data-id="'+attr(v.id)+'">تعديل</button><button class="mini danger" data-action="delete-vip" data-id="'+attr(v.id)+'">حذف</button></td></tr>').join(""):emptyRow(5))+
-    '</tbody></table></div></div>');
-}
-function openCreateVip(){
-  const next=state.vipLevels.length?Math.max(...state.vipLevels.map(v=>Number(v.level)||0))+1:1;
-  openEditVip(null,next);
-}
-function openEditVip(id,level){
-  const v=id?state.vipLevels.find(x=>String(x.id)===String(id)):{level:level||1,name_ar:"VIP جديد",price_coins:1000,benefits:{},is_active:true};
-  if(!v)return;
-  openModal('<h3>'+(id?"تعديل مستوى VIP":"إضافة مستوى VIP")+'</h3><div class="form-grid">'+field("المستوى","v_level",v.level,"number")+field("الاسم","v_name",v.name_ar)+field("السعر Coins","v_price",v.price_coins,"number")+textarea("المزايا JSON","v_benefits",JSON.stringify(v.benefits||{}),"full")+'</div><div class="actions"><button class="btn primary" data-action="save-vip" data-id="'+attr(id||"new")+'">حفظ</button></div>');
-}
-async function saveVip(id){
-  let benefits={};try{benefits=JSON.parse($("#f_v_benefits").value||"{}");}catch{toast("المزايا يجب أن تكون JSON صحيح","bad");return;}
-  await api("save_vip",{vip:{id:id==="new"?null:Number(id),level:Number($("#f_v_level").value),name_ar:$("#f_v_name").value,price_coins:Number($("#f_v_price").value||0),benefits,is_active:true}});
-  closeModal();toast("تم حفظ مستوى VIP");await loadDashboard();
-}
-async function deleteVip(id){if(!confirm("حذف مستوى VIP؟"))return;await api("delete_vip",{id:Number(id)});toast("تم حذف مستوى VIP");await loadDashboard();}
-
-function topups(){
-  setContent('<div class="section"><div class="section-head"><h3>طلبات الشحن ('+state.topups.length+')</h3><button class="mini" data-action="reload">↻ تحديث</button></div><div class="table-wrap"><table><thead><tr><th>المستخدم</th><th>Coins</th><th>المبلغ</th><th>الطريقة</th><th>الحالة</th><th>التاريخ</th><th>إجراء</th></tr></thead><tbody>'+
-  (state.topups.length?state.topups.map(t=>'<tr><td>'+esc(t.profiles?.display_name||t.user_id)+'</td><td>'+esc(t.coins)+'</td><td>'+esc(((Number(t.amount_minor)||0)/100).toFixed(2))+' '+esc(t.currency)+'</td><td>'+esc(t.provider)+'</td><td>'+esc(t.status)+'</td><td>'+esc(t.created_at?new Date(t.created_at).toLocaleString("ar-EG"):"—")+'</td><td>'+(t.status==="pending"?'<button class="mini success" data-action="review-topup" data-id="'+attr(t.id)+'" data-status="paid">قبول</button><button class="mini danger" data-action="review-topup" data-id="'+attr(t.id)+'" data-status="rejected">رفض</button>':"—")+'</td></tr>').join(""):emptyRow(7,"لا توجد طلبات شحن معلقة"))+
-  '</tbody></table></div></div>');
-}
-async function reviewTopup(id,status){const note=prompt("ملاحظة للمراجعة","");if(note===null)return;await api("review_topup",{id,status,note});toast("تم تحديث طلب الشحن");await loadDashboard();}
-
-function reports(){
-  setContent('<div class="section"><div class="section-head"><h3>البلاغات ('+state.reports.length+')</h3><button class="mini" data-action="reload">↻ تحديث</button></div><div class="table-wrap"><table><thead><tr><th>ID</th><th>المبلغ عنه</th><th>الغرفة</th><th>السبب</th><th>الحالة</th><th>إجراء</th></tr></thead><tbody>'+
-  (state.reports.length?state.reports.map(r=>'<tr><td>'+esc(r.id)+'</td><td>'+esc(r.target_user_id)+'</td><td>'+esc(r.room_id||"—")+'</td><td>'+esc(r.reason||"—")+'</td><td>'+esc(r.status)+'</td><td>'+(r.status==="open"?'<button class="mini success" data-action="resolve-report" data-id="'+attr(r.id)+'" data-status="resolved">حل</button><button class="mini" data-action="resolve-report" data-id="'+attr(r.id)+'" data-status="rejected">رفض</button>':"—")+'</td></tr>').join(""):emptyRow(6,"لا توجد بلاغات مفتوحة"))+
-  '</tbody></table></div></div>');
-}
-async function resolveReport(id,status){await api("resolve_report",{id,status});toast("تم تحديث البلاغ");await loadDashboard();}
-
-function bans(){
-  setContent('<div class="section"><div class="section-head"><h3>سجل الحظر ('+state.bans.length+')</h3><button class="mini" data-action="reload">↻ تحديث</button></div><div class="table-wrap"><table><thead><tr><th>Public ID</th><th>النوع</th><th>السبب</th><th>ينتهي</th><th>الحالة</th><th>إجراء</th></tr></thead><tbody>'+
-  (state.bans.length?state.bans.map(b=>'<tr><td>'+esc(b.public_id)+'</td><td>'+esc(b.ban_type)+'</td><td>'+esc(b.reason)+'</td><td>'+esc(b.expires_at?new Date(b.expires_at).toLocaleString("ar-EG"):"دائم")+'</td><td>'+(b.active?'<span class="pill bad">نشط</span>':'<span class="pill">منتهي</span>')+'</td><td>'+(b.active?'<button class="mini success" data-action="quick-unban" data-public-id="'+attr(b.public_id)+'">فك الحظر</button>':"—")+'</td></tr>').join(""):emptyRow(6,"لا يوجد حظر نشط"))+
-  '</tbody></table></div></div>');
-}
-async function quickUnban(pid){await api("unban_user",{public_id:Number(pid)});toast("تم فك الحظر");await loadDashboard();}
-
-async function storage(){
-  setContent('<div class="section"><div class="section-head"><div><h3>مكتبة الصور والملفات الحقيقية</h3><p class="muted">المحتوى التالي يُقرأ مباشرة من Supabase Storage المستخدم بواسطة التطبيق.</p></div><button class="mini" data-action="reload-storage">↻ تحديث</button></div><div id="storageGrid" class="cards"><div class="skeleton"></div></div></div>');
-  try{
-    const data=await api("storage_assets");
-    const all=Object.entries(data.buckets||{});
-    const html=all.map(([bucket,items])=>'<div class="section"><div class="section-head"><h3>'+esc(bucket)+' <span class="muted">('+items.length+')</span></h3></div><div class="asset-grid">'+(items.length?items.map(x=>'<a class="asset-card" href="'+attr(x.url)+'" target="_blank" rel="noopener"><img src="'+attr(x.url)+'" loading="lazy" onerror="this.style.display=\'none\'"><div><b>'+esc(x.name)+'</b><small>'+esc(x.updated_at||x.created_at||"")+'</small></div></a>').join(""):'<div class="empty">لا توجد ملفات في هذا التخزين.</div>')+'</div></div>').join("");
-    setContent(html||'<div class="section"><h3>لا توجد ملفات تخزين حالياً</h3></div>');
-  }catch(e){setContent('<div class="section error-panel"><h3 class="bad">تعذر قراءة التخزين</h3><p>'+esc(e.message||e)+'</p><button class="btn primary" data-action="reload-storage">إعادة المحاولة</button></div>');}
-}
-function settings(){
-  const s=state.settings||{};
-  setContent('<div class="grid2"><div class="section"><h3>إعدادات التشغيل</h3>'+selectField("وضع الصيانة","set_maint",[{value:"false",label:"متوقف"},{value:"true",label:"مفعل"}],String(!!s.maintenance_mode))+textarea("الإعلان العام","set_ann",s.global_announcement||"")+'<div class="actions"><button class="btn primary" data-action="save-settings">حفظ الإعدادات</button></div></div>'+
-  '<div class="section"><h3>حالة لوحة التحكم</h3><p class="ok">● متصل بـ Supabase</p><p class="muted">التغييرات تحفظ مباشرة في admin_app_settings وadmin_control_settings وتظهر للتطبيق الفعلي عبر public_state.</p><div class="actions"><button class="btn ghost" data-action="reload">إعادة تحميل البيانات</button></div></div></div>');
-}
-async function saveSettings(){await api("save_settings",{patch:{maintenance_mode:$("#f_set_maint").value==="true",global_announcement:$("#f_set_ann").value}});toast("تم حفظ الإعدادات");await loadDashboard();}
-
-function navTo(page){
-  const b=$('#nav button[data-page="'+page+'"]');
-  if(b)b.click(); else renderPage(page);
-}
-
-$("#nav")?.addEventListener("click",e=>{
-  const b=e.target.closest("button[data-page]");if(!b)return;
-  e.preventDefault();
-  $$("#nav button[data-page]").forEach(x=>x.classList.remove("active"));
-  b.classList.add("active");
-  renderPage(b.dataset.page);
-});
-document.addEventListener("click",async e=>{
-  const pageBtn=e.target.closest("[data-page]");
-  if(pageBtn && !pageBtn.matches("#nav button")){navTo(pageBtn.dataset.page);return;}
-  const b=e.target.closest("[data-action]");if(!b)return;
-  const a=b.dataset.action;
-  try{
-    if(a==="reload"){await loadDashboard();toast("تم تحديث البيانات");}
-    else if(a==="reload-storage"){await storage();toast("تم تحديث مكتبة التخزين");}
-    else if(a==="create-user")openCreateUser();
-    else if(a==="save-create-user")await createUser();
-    else if(a==="edit-user")openEditUser(b.dataset.id);
-    else if(a==="save-user")await saveUser(b.dataset.id);
-    else if(a==="toggle-ban")await toggleBan(b.dataset.id);
-    else if(a==="create-room")openCreateRoom();
-    else if(a==="save-create-room")await createRoom();
-    else if(a==="edit-room")openEditRoom(b.dataset.id);
-    else if(a==="save-room")await saveRoom(b.dataset.id);
-    else if(a==="toggle-room")await toggleRoom(b.dataset.id,b.dataset.closed);
-    else if(a==="lock-room")await lockRoom(b.dataset.id,b.dataset.locked);
-    else if(a==="delete-room")await deleteRoom(b.dataset.id);
-    else if(a==="create-agency")openCreateAgency();
-    else if(a==="save-create-agency")await createAgency();
-    else if(a==="edit-agency")openEditAgency(b.dataset.id);
-    else if(a==="save-agency")await saveAgency(b.dataset.id);
-    else if(a==="delete-agency")await deleteAgency(b.dataset.id);
-    else if(a==="create-gift")openCreateGift();
-    else if(a==="edit-gift")openEditGift(b.dataset.id);
-    else if(a==="save-gift")await saveGift(b.dataset.id);
-    else if(a==="delete-gift")await deleteGift(b.dataset.id);
-    else if(a==="create-vip")openCreateVip();
-    else if(a==="edit-vip")openEditVip(b.dataset.id);
-    else if(a==="save-vip")await saveVip(b.dataset.id);
-    else if(a==="delete-vip")await deleteVip(b.dataset.id);
-    else if(a==="review-topup")await reviewTopup(b.dataset.id,b.dataset.status);
-    else if(a==="resolve-report")await resolveReport(b.dataset.id,b.dataset.status);
-    else if(a==="quick-unban")await quickUnban(b.dataset.publicId);
-    else if(a==="save-settings")await saveSettings();
-  }catch(err){console.error(err);toast(err.message||"فشل تنفيذ العملية","bad");}
-});
-
-$("#closeModal")?.addEventListener("click",closeModal);
-$("#modal")?.addEventListener("click",e=>{if(e.target.id==="modal")closeModal();});
-$("#refresh")?.addEventListener("click",async()=>{try{await loadDashboard();toast("تم تحديث البيانات");}catch(e){if(String(e.message).includes("الجلسة"))location.reload();}});
-$("#logout")?.addEventListener("click",async()=>{try{await api("logout");}catch{}sessionStorage.removeItem("pharaoh_admin_token");location.reload();});
-
-$("#userSearch")?.addEventListener("input",e=>{
-  const q=e.target.value.toLowerCase();
-  drawUsers(state.users.filter(u=>[u.public_id,u.display_name,u.username,u.phone].join(" ").toLowerCase().includes(q)));
-});
-document.addEventListener("input",e=>{
-  if(e.target.id==="userSearch"){
-    const q=e.target.value.toLowerCase();
-    drawUsers(state.users.filter(u=>[u.public_id,u.display_name,u.username,u.phone].join(" ").toLowerCase().includes(q)));
-  }
-});
-
-window.addEventListener("error",e=>console.error("Admin JS error",e.error||e.message));
-
-if(token){
-  $("#login")?.classList.add("hidden");
-  $("#app")?.classList.remove("hidden");
-  loadDashboard().catch(e=>{
-    sessionStorage.removeItem("pharaoh_admin_token");
-    $("#app")?.classList.add("hidden");
-    $("#login")?.classList.remove("hidden");
-    if($("#loginMsg"))$("#loginMsg").textContent="تعذر تحميل لوحة التحكم: "+(e.message||"خطأ غير معروف");
-  });
-}
+const API=window.__ADMIN_API,KEY=window.__ADMIN_KEY;
+let token=sessionStorage.getItem("pharaoh_admin_token")||localStorage.getItem("pharaoh_admin_token")||"",state={},page="dashboard";
+const $=s=>document.querySelector(s), esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[c]));
+async function api(action,extra={}){const r=await fetch(API,{method:"POST",headers:{"Content-Type":"application/json","apikey":KEY,"Authorization":token?"Bearer "+token:"Bearer "+KEY},body:JSON.stringify({action,session_token:token,...extra})});const t=await r.text();let j;try{j=JSON.parse(t)}catch{j={error:t}}if(r.status===401){token="";sessionStorage.removeItem("pharaoh_admin_token");localStorage.removeItem("pharaoh_admin_token");showLogin(j.error||"انتهت الجلسة");throw new Error(j.error||"انتهت الجلسة")}if(!r.ok)throw new Error(j.error||"فشل الطلب");return j}
+function showLogin(m=""){ $("#app")?.classList.add("hidden");$("#login")?.classList.remove("hidden");if($("#loginMsg"))$("#loginMsg").textContent=m}
+function toast(m,bad=false){const x=document.createElement("div");x.className="toast";x.textContent=m;document.body.appendChild(x);if(bad)x.style.borderColor="#ff5265";setTimeout(()=>x.remove(),2600)}
+function modal(h){$("#modalContent").innerHTML=h;$("#modal").classList.remove("hidden")}
+function closeModal(){$("#modal").classList.add("hidden");$("#modalContent").innerHTML=""}
+function field(l,k,v="",type="text"){return `<label>${esc(l)}<input id="f_${k}" type="${type}" value="${esc(v)}"></label>`}
+function ta(l,k,v=""){return `<label class="full">${esc(l)}<textarea id="f_${k}" rows="5">${esc(v)}</textarea></label>`}
+function actions(h){return '<div class="actions">'+h+"</div>"}
+function table(headers,rows,empty="لا توجد بيانات"){return '<div class="table-wrap"><table><thead><tr>'+headers.map(x=>"<th>"+x+"</th>").join("")+"</tr></thead><tbody>"+(rows.length?rows.join(""):'<tr><td colspan="'+headers.length+'" class="empty">'+empty+"</td></tr>")+"</tbody></table></div>"}
+async function load(){try{state=await api("dashboard");$("#connection").innerHTML='<i></i> متصل وقاعدة البيانات تعمل';render(page)}catch(e){$("#connection").innerHTML='<i class="bad"></i> غير متصل';throw e}}
+function setPage(p,title){page=p;$("#pageTitle").textContent=title;document.querySelectorAll("#nav button").forEach(b=>b.classList.toggle("active",b.dataset.page===p))}
+function render(p){setPage(p,{dashboard:"الرئيسية",users:"المستخدمون",rooms:"الغرف والتحكم المباشر",agencies:"الوكالات",gifts:"الهدايا",vip:"VIP والمستويات",wallet:"المحفظة والشحن",payments:"طرق الدفع",reports:"البلاغات والإشراف",bans:"الحظر",settings:"إعدادات التطبيق",storage:"التخزين",audit:"سجل العمليات",roles:"الأدوار والصلاحيات",system:"مدير بيانات النظام"}[p]||p);({dashboard,users,rooms,agencies,gifts,vip,wallet,payments,reports,bans,settings,storage,audit,roles,system}[p]||dashboard)()}
+function card(k,t){return '<div class="card"><small>'+t+'</small><div class="metric">'+(state.counts?.[k]??0)+'</div><span class="muted">بيانات فعلية</span></div>'}
+function dashboard(){const recent=(state.users||[]).slice(0,8).map(u=>'<tr><td>'+esc(u.public_id)+'</td><td><b>'+esc(u.display_name||u.username)+'</b></td><td>'+esc(u.level)+'</td><td>'+esc(u.coins)+'</td><td>'+(u.is_banned?'<span class="pill bad">محظور</span>':'<span class="pill ok">نشط</span>')+'</td><td><button class="mini" data-a="edit-user" data-id="'+u.id+'">فتح الملف</button></td></tr>');$("#content").innerHTML='<div class="cards">'+["users","rooms","agencies","gifts","pendingTopups","openReports","activeBans","vipLevels","paymentMethods"].map((k,i)=>card(k,["المستخدمون","الغرف","الوكالات","الهدايا","شحنات معلقة","بلاغات مفتوحة","حظر نشط","مستويات VIP","طرق الدفع"][i])).join("")+'</div><div class="grid2"><div class="section"><div class="section-head"><h3>آخر المستخدمين</h3></div>'+table(["ID","المستخدم","المستوى","Coins","الحالة",""],recent)+'</div><div class="section"><h3>تشغيل سريع</h3><div class="actions"><button class="btn primary" data-a="create-user">+ مستخدم</button><button class="btn primary" data-a="create-room">+ غرفة</button><button class="btn primary" data-a="create-gift">+ هدية</button><button class="btn primary" data-a="create-vip">+ VIP</button><button class="btn ghost" data-p="settings">إعدادات التطبيق</button><button class="btn ghost" data-p="system">بيانات النظام</button></div><div class="notice" style="margin-top:14px">هذه اللوحة تستخدم Edge Function بصلاحيات إدارية وتكتب مباشرة في جداول التطبيق. كل عملية إدارية تسجل في سجل التدقيق.</div></div></div>'}
+function users(){const rows=(state.users||[]).map(u=>'<tr><td>'+esc(u.public_id)+'</td><td><b>'+esc(u.display_name||"—")+'</b><br><small class="muted">@'+esc(u.username||"—")+'</small></td><td>'+esc(u.level)+' / VIP '+esc(u.vip_level)+'</td><td>'+esc(u.coins)+'</td><td>'+esc(u.diamonds)+'</td><td>'+(u.is_banned?'<span class="pill bad">محظور</span>':'<span class="pill ok">نشط</span>')+'</td><td><button class="mini" data-a="edit-user" data-id="'+u.id+'">تعديل</button><button class="mini '+(u.is_banned?"success":"danger")+'" data-a="ban" data-id="'+u.id+'">'+(u.is_banned?"فك الحظر":"حظر")+'</button><button class="mini" data-a="wallet" data-id="'+u.id+'">المحفظة</button><button class="mini" data-a="notify-one" data-id="'+u.id+'">إشعار</button></td></tr>');$("#content").innerHTML='<div class="toolbar"><button class="btn primary" data-a="create-user">+ إنشاء مستخدم</button><input id="q" placeholder="بحث بالاسم أو ID أو الهاتف"><button class="btn ghost" data-a="reload">↻ تحديث</button></div><div class="section">'+table(["ID","المستخدم","المستويات","Coins","Diamonds","الحالة","إجراءات"],rows)+'</div>';$("#q").oninput=e=>{const q=e.target.value.toLowerCase();document.querySelectorAll("tbody tr").forEach(r=>r.style.display=r.textContent.toLowerCase().includes(q)?"":"none")}}
+function editUser(id){const u=state.users.find(x=>x.id===id);if(!u)return;modal('<h3>تحرير المستخدم #'+esc(u.public_id)+'</h3><div class="form-grid">'+field("الاسم","name",u.display_name)+field("اسم المستخدم","username",u.username)+field("الهاتف","phone",u.phone)+field("الدولة","country",u.country_code)+field("المستوى","level",u.level,"number")+field("VIP","vip",u.vip_level,"number")+field("Coins","coins",u.coins,"number")+field("Diamonds","dia",u.diamonds,"number")+ta("النبذة","bio",u.bio||"")+actions('<button class="btn primary" data-a="save-user" data-id="'+id+'">حفظ التعديلات</button>')+'</div>')}
+function createUser(){modal('<h3>إنشاء مستخدم فعلي</h3><div class="form-grid">'+field("الاسم","n","مستخدم جديد")+field("اسم المستخدم","un","user"+Date.now())+field("البريد","email","user"+Date.now()+"@pharaoh.local")+field("كلمة المرور","pw","Pharaoh@123456")+field("Coins","coins",0,"number")+field("Diamonds","dia",0,"number")+actions('<button class="btn primary" data-a="save-new-user">إنشاء</button>')+'</div>')}
+function rooms(){const rows=(state.rooms||[]).map(r=>'<tr><td>'+esc(r.id)+'</td><td><b>'+esc(r.name)+'</b><br><small>'+esc(r.description||"")+'</small></td><td>'+esc(r.host_name)+'</td><td>'+esc(r.viewer_count||0)+'</td><td>'+(r.is_closed?'<span class="pill bad">مغلقة</span>':r.is_locked?'<span class="pill">مقفلة</span>':'<span class="pill ok">مباشرة</span>')+'</td><td><button class="mini" data-a="edit-room" data-id="'+r.id+'">تعديل</button><button class="mini" data-a="room-members" data-id="'+r.id+'">الأعضاء/المقاعد</button><button class="mini danger" data-a="delete-room" data-id="'+r.id+'">حذف</button></td></tr>');$("#content").innerHTML='<div class="toolbar"><button class="btn primary" data-a="create-room">+ غرفة</button><button class="btn ghost" data-a="reload">↻ تحديث</button></div><div class="section">'+table(["ID","الغرفة","المضيف","المشاهدون","الحالة","إجراءات"],rows)+'</div>'}
+function createRoom(){const opts=(state.users||[]).map(u=>'<option value="'+u.id+'">'+esc(u.display_name||u.username)+' #'+u.public_id+'</option>').join("");modal('<h3>إنشاء غرفة</h3><div class="form-grid">'+field("اسم الغرفة","name","غرفة جديدة")+field("التصنيف","cat","general")+field("المقاعد","seats",8,"number")+field("الدولة","country","EG")+ta("الوصف","desc","")+'<label>المالك<select id="f_owner">'+opts+"</select></label>"+actions('<button class="btn primary" data-a="save-room-new">إنشاء الغرفة</button>')+"</div>")}
+function editRoom(id){const r=state.rooms.find(x=>x.id===id);if(!r)return;modal('<h3>تحكم كامل بالغرفة</h3><div class="form-grid">'+field("اسم الغرفة","name",r.name)+field("التصنيف","cat",r.category)+field("المقاعد","seats",r.seat_count,"number")+field("الغلاف","cover",r.cover_url||"")+ta("الوصف","desc",r.description||"")+actions('<button class="btn primary" data-a="save-room" data-id="'+id+'">حفظ</button><button class="btn ghost" data-a="room-live" data-id="'+id+'" data-v="'+(!r.is_live)+'">'+(r.is_live?"إغلاق الغرفة":"فتح الغرفة")+'</button><button class="btn ghost" data-a="room-lock" data-id="'+id+'" data-v="'+(!r.is_locked)+'">'+(r.is_locked?"فك القفل":"قفل الغرفة")+'</button>')+"</div>")}
+async function roomMembers(id){const j=await api("system_data",{table:"room_members",eq:{room_id:id},limit:200});const roles=await api("system_data",{table:"room_roles",eq:{room_id:id},limit:100});const seats=await api("system_data",{table:"room_seats",eq:{room_id:id},limit:100});modal('<h3>إدارة الغرفة</h3><div class="notice">أعضاء: '+j.rows.length+' • أدوار: '+roles.rows.length+' • مقاعد: '+seats.rows.length+'</div>'+table(["المستخدم","محظور","إجراء"],j.rows.map(x=>'<tr><td>'+esc(x.user_id)+'</td><td>'+x.is_banned+'</td><td><button class="mini danger" data-a="remove-member" data-room="'+id+'" data-user="'+x.user_id+'">إزالة</button><button class="mini" data-a="member-ban" data-room="'+id+'" data-user="'+x.user_id+'">حظر/فك</button></td></tr>'))+actions('<button class="btn ghost" onclick="closeModal()">إغلاق</button>'))}
+function agencies(){const rows=(state.agencies||[]).map(a=>'<tr><td>'+esc(a.name)+'</td><td>'+esc(a.owner_name)+'</td><td>'+esc(a.description||"")+'</td><td><button class="mini" data-a="edit-agency" data-id="'+a.id+'">تعديل</button><button class="mini danger" data-a="delete-agency" data-id="'+a.id+'">حذف</button></td></tr>');$("#content").innerHTML='<div class="toolbar"><button class="btn primary" data-a="create-agency">+ وكالة</button></div><div class="section">'+table(["الوكالة","المالك","الوصف","إجراءات"],rows)+'</div>'}
+function agencyModal(id){const a=id?state.agencies.find(x=>x.id===id):{name:"وكالة جديدة",description:"",logo_url:"",owner_id:state.users[0]?.id};if(!a)return;const opts=state.users.map(u=>'<option value="'+u.id+'" '+(u.id===a.owner_id?"selected":"")+'>'+esc(u.display_name||u.username)+'</option>').join("");modal('<h3>'+(id?"تعديل وكالة":"إنشاء وكالة")+'</h3><div class="form-grid">'+field("الاسم","name",a.name)+field("الشعار","logo",a.logo_url||"")+ta("الوصف","desc",a.description||"")+'<label>المالك<select id="f_owner">'+opts+"</select></label>"+actions('<button class="btn primary" data-a="save-agency" data-id="'+(id||"new")+'">حفظ</button>')+"</div>")}
+function gifts(){const rows=(state.gifts||[]).map(g=>'<tr><td>'+esc(g.emoji||"🎁")+'</td><td>'+esc(g.name)+'</td><td>'+esc(g.coin_price)+'</td><td>'+esc(g.diamond_value)+'</td><td>'+(g.is_active===false?'<span class="pill bad">معطلة</span>':'<span class="pill ok">فعالة</span>')+'</td><td><button class="mini" data-a="edit-gift" data-id="'+g.id+'">تعديل</button><button class="mini danger" data-a="delete-gift" data-id="'+g.id+'">حذف</button></td></tr>');$("#content").innerHTML='<div class="toolbar"><button class="btn primary" data-a="create-gift">+ هدية</button></div><div class="section">'+table(["","الاسم","Coins","Diamonds","الحالة","إجراءات"],rows)+'</div>'}
+function giftModal(id){const g=id?state.gifts.find(x=>x.id===id):{name:"هدية جديدة",emoji:"🎁",coin_price:100,diamond_value:0,image_url:"",animation_url:"",is_active:true,sort_order:0};modal('<h3>إدارة الهدية</h3><div class="form-grid">'+field("الاسم","name",g.name)+field("Emoji","emoji",g.emoji)+field("Coins","coins",g.coin_price,"number")+field("Diamonds","dia",g.diamond_value,"number")+field("الصورة","img",g.image_url||"")+field("Animation","anim",g.animation_url||"")+field("الترتيب","sort",g.sort_order||0,"number")+actions('<button class="btn primary" data-a="save-gift" data-id="'+(id||"new")+'">حفظ</button>')+"</div>")}
+function vip(){const rows=(state.vipLevels||[]).map(v=>'<tr><td>'+v.level+'</td><td>'+esc(v.name_ar)+'</td><td>'+v.price_coins+'</td><td>'+v.is_active+'</td><td><button class="mini" data-a="edit-vip" data-id="'+v.id+'">تعديل</button><button class="mini danger" data-a="delete-vip" data-id="'+v.id+'">حذف</button></td></tr>');$("#content").innerHTML='<div class="toolbar"><button class="btn primary" data-a="create-vip">+ VIP</button></div><div class="section">'+table(["المستوى","الاسم","السعر","فعال","إجراءات"],rows)+'</div>'}
+function vipModal(id){const v=id?state.vipLevels.find(x=>String(x.id)===String(id)):{level:(Math.max(0,...(state.vipLevels||[]).map(x=>+x.level))+1),name_ar:"VIP جديد",price_coins:1000,benefits:{},is_active:true};modal('<h3>مستوى VIP</h3><div class="form-grid">'+field("المستوى","level",v.level,"number")+field("الاسم","name",v.name_ar)+field("السعر Coins","price",v.price_coins,"number")+ta("المزايا JSON","benefits",JSON.stringify(v.benefits||{},null,2))+actions('<button class="btn primary" data-a="save-vip" data-id="'+(id||"new")+'">حفظ</button>')+"</div>")}
+function wallet(){const rows=(state.topups||[]).map(t=>'<tr><td>'+esc(t.user_id)+'</td><td>'+t.coins+'</td><td>'+((+t.amount_minor||0)/100).toFixed(2)+' '+esc(t.currency)+'</td><td>'+esc(t.status)+'</td><td>'+(t.status==="pending"?'<button class="mini success" data-a="review" data-id="'+t.id+'" data-s="paid">قبول</button><button class="mini danger" data-a="review" data-id="'+t.id+'" data-s="rejected">رفض</button>':"—")+'</td></tr>');$("#content").innerHTML='<div class="toolbar"><button class="btn primary" data-a="adjust-wallet">+ تعديل رصيد</button><button class="btn ghost" data-a="reload">↻ تحديث</button></div><div class="section"><h3>طلبات الشحن</h3>'+table(["المستخدم","Coins","المبلغ","الحالة","إجراء"],rows)+'</div>'}
+function adjustWallet(){const opts=state.users.map(u=>'<option value="'+u.id+'">'+esc(u.display_name||u.username)+' #'+u.public_id+'</option>').join("");modal('<h3>تعديل محفظة المستخدم</h3><div class="form-grid"><label>المستخدم<select id="f_user">'+opts+'</select></label>'+field("المقدار (+ أو -)","amount",0,"number")+field("السبب","reason","تعديل إداري")+'<label>العملة<select id="f_currency"><option>coins</option><option>diamonds</option></select></label>'+actions('<button class="btn primary" data-a="save-wallet">تنفيذ</button>')+"</div>")}
+function payments(){api("payment_methods").then(j=>{const rows=(j.rows||[]).map(m=>'<tr><td>'+esc(m.name)+'</td><td>'+esc(m.account_number)+'</td><td>'+esc(m.currency)+'</td><td>'+m.coins_per_unit+'</td><td>'+m.is_active+'</td><td><button class="mini" data-a="edit-payment" data-id="'+m.id+'">تعديل</button><button class="mini danger" data-a="delete-payment" data-id="'+m.id+'">حذف</button></td></tr>');$("#content").innerHTML='<div class="toolbar"><button class="btn primary" data-a="create-payment">+ طريقة دفع</button></div><div class="section">'+table(["الطريقة","الحساب","العملة","Coins/Unit","فعال","إجراءات"],rows)+'</div>'})}
+function paymentModal(id){const m=id?state.paymentMethods.find(x=>x.id===id):{name:"تحويل بنكي",account_name:"",account_number:"",instructions:"",qr_url:"",currency:"EGP",coins_per_unit:100,min_amount:10,max_amount:"",is_active:true,sort_order:0};modal('<h3>طريقة دفع حقيقية</h3><div class="form-grid">'+field("الاسم","name",m.name)+field("اسم الحساب","an",m.account_name||"")+field("رقم الحساب","num",m.account_number)+field("العملة","cur",m.currency)+field("Coins لكل وحدة","cpu",m.coins_per_unit,"number")+field("الحد الأدنى","min",m.min_amount,"number")+field("الحد الأقصى","max",m.max_amount??"","number")+field("QR URL","qr",m.qr_url||"")+ta("تعليمات الدفع","ins",m.instructions||"")+actions('<button class="btn primary" data-a="save-payment" data-id="'+(id||"new")+'">حفظ</button>')+"</div>")}
+function reports(){const rows=(state.reports||[]).map(r=>'<tr><td>'+esc(r.id)+'</td><td>'+esc(r.target_user_id||"—")+'</td><td>'+esc(r.reason)+'</td><td>'+esc(r.status)+'</td><td>'+(r.status==="open"?'<button class="mini success" data-a="resolve" data-id="'+r.id+'" data-s="resolved">حل</button><button class="mini" data-a="resolve" data-id="'+r.id+'" data-s="rejected">رفض</button>':"—")+'</td></tr>');$("#content").innerHTML='<div class="section">'+table(["ID","المستخدم","السبب","الحالة","إجراء"],rows)+'</div>'}
+function bans(){const rows=(state.bans||[]).map(b=>'<tr><td>'+b.public_id+'</td><td>'+esc(b.reason)+'</td><td>'+esc(b.expires_at?new Date(b.expires_at).toLocaleString("ar-EG"):"دائم")+'</td><td>'+b.active+'</td><td>'+(b.active?'<button class="mini success" data-a="unban-public" data-id="'+b.public_id+'">فك الحظر</button>':"—")+'</td></tr>');$("#content").innerHTML='<div class="section">'+table(["Public ID","السبب","الانتهاء","نشط","إجراء"],rows)+'</div>'}
+function settings(){const s=state.settings||{};const fv=JSON.stringify(s.feature_visibility||{},null,2),design=JSON.stringify(s.design||{},null,2),content=JSON.stringify(s.content||{},null,2);$("#content").innerHTML='<div class="grid2"><div class="section"><h3>تشغيل التطبيق</h3><div class="form-grid">'+field("الإعلان العام","ann",s.global_announcement||"")+ '<label>الصيانة<select id="f_maint"><option value="false" '+(!s.maintenance_mode?"selected":"")+'>متوقفة</option><option value="true" '+(s.maintenance_mode?"selected":"")+'>مفعلة</option></select></label>'+ta("إظهار/إخفاء المميزات JSON","features",fv)+ta("التصميم JSON","design",design)+ta("المحتوى JSON","content",content)+actions('<button class="btn primary" data-a="save-settings">حفظ ونشر للتطبيق</button>')+"</div></div><div class="section"><h3>حالة الربط</h3><p class="ok">● الإعدادات مرتبطة بـ admin_app_settings</p><p class="muted">أي تغيير هنا يقرأه التطبيق عبر public_state.</p></div></div>"}
+function storage(){api("storage_assets").then(j=>{let h="";for(const [b,items] of Object.entries(j.buckets||{}))h+='<div class="section"><h3>'+esc(b)+' ('+items.length+')</h3><div class="asset-grid">'+items.map(x=>'<a class="asset-card" href="'+esc(x.url)+'" target="_blank"><img src="'+esc(x.url)+'"><div><b>'+esc(x.name)+'</b></div></a>').join("")+"</div></div>";$("#content").innerHTML=h||'<div class="section">لا توجد ملفات</div>'})}
+function audit(){api("audit_logs").then(j=>{$("#content").innerHTML='<div class="section">'+table(["العملية","النوع","المعرف","التاريخ","التفاصيل"],j.rows.map(x=>'<tr><td>'+esc(x.action)+'</td><td>'+esc(x.target_type)+'</td><td>'+esc(x.target_id)+'</td><td>'+esc(new Date(x.created_at).toLocaleString("ar-EG"))+'</td><td><pre style="max-width:400px;white-space:pre-wrap">'+esc(JSON.stringify(x.payload))+"</pre></td></tr>"))+'</div>'})}
+async function roles(){const j=await api("roles");state.roles=j.roles;state.permissions=j.permissions;state.links=j.links;const rows=j.roles.map(r=>'<tr><td>'+esc(r.name_ar)+'</td><td>'+esc(r.name)+'</td><td>'+esc(r.description)+'</td><td><button class="mini" data-a="edit-role" data-id="'+r.id+'">تعديل الصلاحيات</button></td></tr>');$("#content").innerHTML='<div class="toolbar"><button class="btn primary" data-a="create-role">+ دور إداري</button></div><div class="section">'+table(["الدور","المعرف","الوصف","إجراءات"],rows)+'</div>'}
+function roleModal(id){const r=id?state.roles.find(x=>x.id===id):{name:"moderator",name_ar:"مشرف",description:""};const ids=new Set(state.links.filter(x=>x.role_id===id).map(x=>x.permission_id));const groups={};state.permissions.forEach(p=>(groups[p.category]??=[]).push(p));modal('<h3>إدارة صلاحيات الدور</h3><div class="form-grid">'+field("المعرف","name",r.name)+field("الاسم العربي","ar",r.name_ar)+ta("الوصف","desc",r.description||"")+'</div><div class="permission-grid">'+Object.entries(groups).map(([g,ps])=>'<div class="section"><b>'+esc(g)+'</b>'+ps.map(p=>'<label class="check"><input type="checkbox" value="'+p.id+'" '+(ids.has(p.id)?"checked":"")+'>'+esc(p.name_ar)+' <small>'+p.code+'</small></label>').join("")).join("")+'</div></div>'+actions('<button class="btn primary" data-a="save-role" data-id="'+(id||"new")+'">حفظ الدور</button>'))}
+function system(){const tables=Object.keys({profiles:1,rooms:1,room_seats:1,room_roles:1,room_members:1,messages:1,moments:1,follows:1,gifts:1,gift_transactions:1,wallet_ledger:1,notifications:1,reports:1,user_actions:1,agencies:1,agency_members:1,app_settings:1,voice_sessions:1,vip_levels:1,level_rewards:1,game_sessions:1,room_events:1,payment_events:1,manual_payment_methods:1,wallet_topups:1});$("#content").innerHTML='<div class="section"><h3>مدير بيانات النظام</h3><p class="muted">وصول إداري مباشر للبيانات التشغيلية المسموح بها. استخدمه للعمليات المتقدمة فقط.</p><div class="toolbar"><select id="sysTable">'+tables.map(t=>'<option>'+t+'</option>').join("")+'</select><button class="btn primary" data-a="load-system">عرض البيانات</button></div><div id="sysResult"></div></div>'}
+async function systemData(){const t=$("#sysTable").value,j=await api("system_data",{table:t,limit:300});$("#sysResult").innerHTML='<div class="notice">'+j.rows.length+' سجل</div>'+table(j.columns.slice(0,12),j.rows.map(row=>'<tr>'+j.columns.slice(0,12).map(c=>'<td style="max-width:220px;white-space:normal">'+esc(typeof row[c]==="object"?JSON.stringify(row[c]):row[c])+"</td>").join("")+"</tr>"))}
+async function saveSettings(){let features={},design={},content={};try{features=JSON.parse($("#f_features").value||"{}");design=JSON.parse($("#f_design").value||"{}");content=JSON.parse($("#f_content").value||"{}")}catch{toast("JSON غير صحيح",true);return}await api("save_settings",{patch:{maintenance_mode:$("#f_maint").value==="true",global_announcement:$("#f_ann").value,feature_visibility:features,design,content}});toast("تم نشر الإعدادات للتطبيق");await load()}
+async function handle(a,b){try{
+if(a==="reload"){await load();toast("تم التحديث")}
+else if(a==="create-user")createUser();else if(a==="edit-user")editUser(b.dataset.id);else if(a==="save-user"){await api("update_user",{id:b.dataset.id,patch:{display_name:$("#f_name").value,username:$("#f_username").value,phone:$("#f_phone").value,country_code:$("#f_country").value,level:+$("#f_level").value,vip_level:+$("#f_vip").value,coins:+$("#f_coins").value,diamonds:+$("#f_dia").value,bio:$("#f_bio").value}});closeModal();await load()}
+else if(a==="save-new-user"){const j=await api("create_user",{email:$("#f_email").value,password:$("#f_pw").value,profile:{display_name:$("#f_n").value,username:$("#f_un").value,coins:+$("#f_coins").value,diamonds:+$("#f_dia").value}});closeModal();toast("تم إنشاء المستخدم");await load();if(j.temporaryPassword)alert(j.temporaryPassword)}
+else if(a==="ban"){const u=state.users.find(x=>x.id===b.dataset.id);if(u.is_banned){await api("unban_user",{user_id:u.id,public_id:u.public_id})}else{const reason=prompt("سبب الحظر","مخالفة قواعد الاستخدام");if(reason===null)return;const hours=prompt("المدة بالساعات، فارغ = دائم","");if(hours===null)return;await api("ban_user",{user_id:u.id,public_id:u.public_id,reason,hours})}await load()}
+else if(a==="wallet"){adjustWalletFor(b.dataset.id)}else if(a==="notify-one"){notify([b.dataset.id])}
+else if(a==="create-room")createRoom();else if(a==="edit-room")editRoom(b.dataset.id);else if(a==="save-room-new"){await api("create_room",{room:{name:$("#f_name").value,category:$("#f_cat").value,description:$("#f_desc").value,seat_count:+$("#f_seats").value,country_code:$("#f_country").value,owner_id:$("#f_owner").value}});closeModal();await load()}
+else if(a==="save-room"){await api("update_room",{id:b.dataset.id,patch:{name:$("#f_name").value,category:$("#f_cat").value,description:$("#f_desc").value,seat_count:+$("#f_seats").value,cover_url:$("#f_cover").value}});closeModal();await load()}
+else if(a==="room-live"||a==="room-lock"){await api("update_room",{id:b.dataset.id,patch:a==="room-live"?{is_live:b.dataset.v==="true"}:{is_locked:b.dataset.v==="true"}});closeModal();await load()}
+else if(a==="delete-room"){if(confirm("حذف الغرفة نهائياً؟")){await api("delete_room",{id:b.dataset.id});await load()}}
+else if(a==="room-members")await roomMembers(b.dataset.id)
+else if(a==="remove-member"){await api("room_control",{type:"remove_member",room_id:b.dataset.room,user_id:b.dataset.user});await roomMembers(b.dataset.room)}
+else if(a==="member-ban"){await api("room_control",{type:"ban_member",room_id:b.dataset.room,user_id:b.dataset.user,value:true});await roomMembers(b.dataset.room)}
+else if(a==="create-agency")agencyModal();else if(a==="edit-agency")agencyModal(b.dataset.id);else if(a==="save-agency"){await api(b.dataset.id==="new"?"create_agency":"update_agency",b.dataset.id==="new"?{agency:{name:$("#f_name").value,description:$("#f_desc").value,logo_url:$("#f_logo").value,owner_id:$("#f_owner").value}}:{id:b.dataset.id,patch:{name:$("#f_name").value,description:$("#f_desc").value,logo_url:$("#f_logo").value}});closeModal();await load()}else if(a==="delete-agency"){if(confirm("حذف الوكالة؟")){await api("delete_agency",{id:b.dataset.id});await load()}}
+else if(a==="create-gift")giftModal();else if(a==="edit-gift")giftModal(b.dataset.id);else if(a==="save-gift"){const p={name:$("#f_name").value,emoji:$("#f_emoji").value,coins:+$("#f_coins").value,diamonds:+$("#f_dia").value,custom_image:$("#f_img").value,animation_url:$("#f_anim").value,sort_order:+$("#f_sort").value};await api(b.dataset.id==="new"?"create_gift":"update_gift",b.dataset.id==="new"?{gift:p}:{id:b.dataset.id,patch:p});closeModal();await load()}else if(a==="delete-gift"){if(confirm("حذف الهدية؟")){await api("delete_gift",{id:b.dataset.id});await load()}}
+else if(a==="create-vip")vipModal();else if(a==="edit-vip")vipModal(b.dataset.id);else if(a==="save-vip"){let benefits={};try{benefits=JSON.parse($("#f_benefits").value||"{}")}catch{toast("JSON غير صحيح",true);return}await api("save_vip",{vip:{id:b.dataset.id==="new"?null:+b.dataset.id,level:+$("#f_level").value,name_ar:$("#f_name").value,price_coins:+$("#f_price").value,benefits,is_active:true}});closeModal();await load()}else if(a==="delete-vip"){if(confirm("حذف مستوى VIP؟")){await api("delete_vip",{id:+b.dataset.id});await load()}}
+else if(a==="adjust-wallet")adjustWalletFor();else if(a==="save-wallet"){await api("wallet_adjust",{user_id:$("#f_user").value,amount:+$("#f_amount").value,currency:$("#f_currency").value,reason:$("#f_reason").value});closeModal();await load()}
+else if(a==="review"){const note=prompt("ملاحظة","");if(note!==null){await api("review_topup",{id:b.dataset.id,status:b.dataset.s,note});await load()}}
+else if(a==="create-payment")paymentModal();else if(a==="edit-payment")paymentModal(b.dataset.id);else if(a==="save-payment"){const m={name:$("#f_name").value,account_name:$("#f_an").value,account_number:$("#f_num").value,currency:$("#f_cur").value,coins_per_unit:+$("#f_cpu").value,min_amount:+$("#f_min").value,max_amount:$("#f_max").value,qr_url:$("#f_qr").value,instructions:$("#f_ins").value,is_active:true};if(b.dataset.id!=="new")m.id=b.dataset.id;await api("save_payment_method",{method:m});closeModal();state.paymentMethods=(await api("payment_methods")).rows;payments()}else if(a==="delete-payment"){if(confirm("حذف طريقة الدفع؟")){await api("delete_payment_method",{id:b.dataset.id});payments()}}
+else if(a==="resolve"){await api("resolve_report",{id:b.dataset.id,status:b.dataset.s});await load()}else if(a==="unban-public"){await api("unban_user",{public_id:b.dataset.id});await load()}
+else if(a==="save-settings")await saveSettings();else if(a==="notify")notify();else if(a==="load-system")await systemData()
+else if(a==="create-role")roleModal();else if(a==="edit-role")roleModal(b.dataset.id);else if(a==="save-role"){const ids=[...document.querySelectorAll('.permission-grid input:checked')].map(x=>x.value);await api("save_role",{role:{id:b.dataset.id==="new"?null:b.dataset.id,name:$("#f_name").value,name_ar:$("#f_ar").value,description:$("#f_desc").value,permissions:ids}});closeModal();roles()}
+}catch(e){toast(e.message||"فشل التنفيذ",true)}}
+function adjustWalletFor(id){const opts=state.users.map(u=>'<option value="'+u.id+'" '+(u.id===id?"selected":"")+'>'+esc(u.display_name||u.username)+' #'+u.public_id+'</option>').join("");modal('<h3>تعديل الرصيد</h3><div class="form-grid"><label>المستخدم<select id="f_user">'+opts+'</select></label>'+field("المقدار (+/-)","amount",0,"number")+field("السبب","reason","تعديل إداري")+'<label>العملة<select id="f_currency"><option value="coins">Coins</option><option value="diamonds">Diamonds</option></select></label>'+actions('<button class="btn primary" data-a="save-wallet">تنفيذ</button>')+"</div>")}
+function notify(ids=[]){modal('<h3>إرسال إشعار داخل التطبيق</h3>'+field("العنوان","title","إشعار من الإدارة")+ta("الرسالة","message","")+actions('<button class="btn primary" data-a="send-notify" data-ids="'+ids.join(",")+'">إرسال الآن</button>'))}
+async function sendNotify(b){const ids=b.dataset.ids?b.dataset.ids.split(",").filter(Boolean):state.users.map(x=>x.id);await api("send_notification",{user_ids:ids,title:$("#f_title").value,message:$("#f_message").value});closeModal();toast("تم إرسال الإشعار")}
+document.addEventListener("click",async e=>{const p=e.target.closest("[data-p]");if(p){render(p.dataset.p);return}const b=e.target.closest("[data-a]");if(!b)return;if(b.dataset.a==="send-notify"){await sendNotify(b);return}handle(b.dataset.a,b)});
+$("#nav").onclick=e=>{const b=e.target.closest("[data-page]");if(b){e.preventDefault();render(b.dataset.page)}};
+$("#closeModal").onclick=closeModal;$("#modal").onclick=e=>{if(e.target.id==="modal")closeModal()};$("#refresh").onclick=()=>load().catch(()=>{});$("#logout").onclick=async()=>{try{await api("logout")}catch{}token="";sessionStorage.removeItem("pharaoh_admin_token");localStorage.removeItem("pharaoh_admin_token");showLogin()};
+$("#loginForm").onsubmit=async e=>{e.preventDefault();const btn=$("#loginBtn"),msg=$("#loginMsg");btn.disabled=true;msg.textContent="جارٍ التحقق من الخادم...";try{const j=await api("login",{password:$("#password").value});token=j.token;sessionStorage.setItem("pharaoh_admin_token",token);localStorage.setItem("pharaoh_admin_token",token);$("#login").classList.add("hidden");$("#app").classList.remove("hidden");await load()}catch(x){msg.textContent=x.message||"فشل الدخول"}finally{btn.disabled=false}};
+if(token){$("#login").classList.add("hidden");$("#app").classList.remove("hidden");load().catch(()=>showLogin("تعذر التحقق من الجلسة"))}else showLogin();
