@@ -69,11 +69,10 @@ document.getElementById("loginForm").addEventListener("submit",async function(e)
   sessionStorage.setItem("pharaoh_admin_token",j.token);
   document.getElementById("login").classList.add("hidden");
   document.getElementById("app").classList.remove("hidden");
-  if(typeof window.load==="function") await window.load();
-  else location.reload();
+  if(typeof window.loadDashboard==="function") await window.loadDashboard();
  }catch(err){msg.textContent=err.message||"تعذر الاتصال بالخادم";}finally{btn.disabled=false}
 });
 </script>
-<script src="admin.js?v=20260925-01"></script>
+<script src="admin.js?v=20260925-02"></script>
 </body>
 </html>
