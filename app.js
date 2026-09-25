@@ -29,4 +29,14 @@ function getState(){try{return JSON.parse(localStorage.getItem('voice-room-state
 function saveState(s){localStorage.setItem('voice-room-state',JSON.stringify(s))}
 function applyCustom(html,key){const st=getState();const c=st[key]||{};if(c.text) Object.entries(c.text).forEach(([id,val])=>{html=html.replaceAll(`data-edit="${id}"`,`data-edit="${id}">${val}`)});return html}
 function renderScreen(key,target=document.getElementById('app')){const obj=screens[key]||screens.home;target.innerHTML=applyCustom(obj.render(),key)}
-const initial=location.pathname.endsWith('editor.html')?'home':'splash'; renderScreen(initial); loadLiveAppData().then(()=>{if(initial==='splash'){setTimeout(()=>renderScreen('home'),500)}else renderScreen(initial)});
+function featureEnabled(key){const f=appData.settings?.feature_visibility||{};return f[key]!==false}
+function applyLiveControls(){
+  if(appData.settings?.maintenance_mode){
+    const target=document.getElementById('app'); if(target) target.innerHTML='<section class="screen splash"><div class="fade"><div class="brand">فرعون بارتي</div><h2>التطبيق تحت الصيانة</h2><p class="sub">'+escApp(appData.settings.global_announcement||'نعود إليكم قريباً')+'</p></div></section>';
+    return true;
+  }
+  return false;
+}
+const initial=location.pathname.endsWith('editor.html')?'home':'splash';
+renderScreen(initial);
+loadLiveAppData().then(()=>{if(applyLiveControls())return;if(initial==='splash'){setTimeout(()=>renderScreen('home'),500)}else renderScreen(initial)});
