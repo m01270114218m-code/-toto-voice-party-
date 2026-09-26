@@ -1,9 +1,0 @@
-{
-  "name": "toto-voice-party",
-  "private": true,
-  "version": "1.0.0",
-  "type": "module",
-  "scripts": {"build": "node build.mjs"},
-  "dependencies": {"@capacitor/android": "^7.4.3", "@capacitor/core": "^7.4.3"},
-  "devDependencies": {"@capacitor/cli": "^7.4.3", "typescript": "^5.9.2"}
-}
