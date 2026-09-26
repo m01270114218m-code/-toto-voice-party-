@@ -1,26 +1,16 @@
-# VoiceRoom — Production Control Center
+# VoiceRoom Pro — Full Production Foundation
 
-هذا المستودع يحتوي على النسخة الجديدة من مركز تحكم VoiceRoom.
+مشروع عربي RTL لتطبيق غرف صوتية احترافي، مع تطبيق Flutter + Backend + لوحة تحكم.
 
-## لوحة الإدارة
-- المسار: `admin/`
-- React + Vite
-- اتصال مباشر بـ Supabase
-- تسجيل دخول Supabase Auth
-- التحقق من صلاحية الإدارة عبر `is_admin()`
-- إدارة المستخدمين والغرف والأصول والهدايا وإعدادات التطبيق
+## المكونات
+- `mobile/`: تطبيق Android Flutter.
+- `backend/`: API Node.js + PostgreSQL + Socket.IO، ويشمل Auth/Rooms/Chat/Wallet/Gifts/Admin.
+- `admin/`: لوحة تحكم Web.
+- `.github/workflows/build-apk.yml`: بناء APK تلقائي عبر GitHub Actions.
+- `DEPLOYMENT_CHECKLIST.md`: متطلبات الإطلاق العام.
 
-## التشغيل
-داخل مجلد `admin`:
+## مهم
+لا توجد خدمة سحابية أو مفاتيح دفع/صوت/FCM داخل الملف لأن هذه مفاتيح سرية يجب أن تكون مملوكة لك. بعد ربط الخدمات السحابية وتشغيل المتغيرات البيئية يصبح المشروع قابلًا للنشر.
 
-```bash
-npm install
-npm run dev
-```
-
-للنشر على Vercel استخدم Root Directory = `admin` و Build Command = `npm run build`.
-
-## متغيرات البيئة
-انسخ `admin/.env.example` إلى متغيرات البيئة في Vercel أو بيئة التشغيل، وضع مفتاح Supabase العام فقط.
-
-> لا تضع Service Role Key أو كلمات مرور الإدارة داخل GitHub.
+### البناء
+أسهل طريقة لبناء APK هي GitHub Actions الموجود داخل المشروع.
